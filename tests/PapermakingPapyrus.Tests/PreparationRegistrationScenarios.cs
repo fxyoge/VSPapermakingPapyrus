@@ -24,6 +24,7 @@ public sealed class PreparationRegistrationScenarios : AtlasScenarioBase
         Assert.NotNull(knife);
         Assert.Equal(64, dry.MaxStackSize);
         Assert.Equal(64, soaked.MaxStackSize);
+        Assert.True((tops.StorageFlags & EnumItemStorageFlags.Offhand) != 0);
         Assert.NotNull(knife.GetCollectibleBehavior<CollectibleBehaviorPapyrusTopCutting>(true));
         Assert.NotNull(tops.GetCollectibleBehavior<CollectibleBehaviorGroundStorable>(true));
         Assert.Contains(
@@ -50,7 +51,10 @@ public sealed class PreparationRegistrationScenarios : AtlasScenarioBase
 
         var knifeSlot = player.Player.InventoryManager.ActiveHotbarSlot;
         knifeSlot.Itemstack = new ItemStack(knife);
-        player.Entity.LeftHandItemSlot.Itemstack = new ItemStack(tops, 2);
+        var topsSlot = new DummySlot(new ItemStack(tops, 2));
+        Assert.Equal(
+            2,
+            topsSlot.TryPutInto(World.Api.World, player.Entity.LeftHandItemSlot, 2));
 
         var handling = EnumHandHandling.NotHandled;
         knife.OnHeldInteractStart(knifeSlot, player.Entity, null!, null!, true, ref handling);
@@ -77,7 +81,10 @@ public sealed class PreparationRegistrationScenarios : AtlasScenarioBase
 
         var knifeSlot = player.Player.InventoryManager.ActiveHotbarSlot;
         knifeSlot.Itemstack = new ItemStack(knife);
-        player.Entity.LeftHandItemSlot.Itemstack = new ItemStack(tops, 1);
+        var topsSlot = new DummySlot(new ItemStack(tops, 1));
+        Assert.Equal(
+            1,
+            topsSlot.TryPutInto(World.Api.World, player.Entity.LeftHandItemSlot));
         var durability = knife.GetRemainingDurability(knifeSlot.Itemstack);
 
         knife.OnHeldInteractCancel(

@@ -42,6 +42,12 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
 
     public override void AssetsFinalize(ICoreAPI api)
     {
+        var papyrusTops = api.World.GetItem(new AssetLocation(PapyrusConstants.PapyrusTopsCode));
+        if (papyrusTops != null)
+        {
+            papyrusTops.StorageFlags |= EnumItemStorageFlags.Offhand;
+        }
+
         var knifeTag = api.CollectibleTagRegistry.CreateTagSet(PapyrusConstants.KnifeTag);
         var attached = 0;
 
