@@ -6,19 +6,19 @@
       {
         type: "item",
         code: "game:waterportion",
-        litres: 4,
-        consumeLitres: 4
+        litres: 0.5,
+        consumeLitres: 0.5
       },
       {
         type: "item",
         code: "papermakingpapyrus:papyrusstrips-dry",
-        quantity: 8
+        quantity: 1
       }
     ],
     output: {
       type: "item",
       code: "papermakingpapyrus:papyrusstrips-soaked",
-      stackSize: 8
+      stackSize: 1
     }
   }
 ]
