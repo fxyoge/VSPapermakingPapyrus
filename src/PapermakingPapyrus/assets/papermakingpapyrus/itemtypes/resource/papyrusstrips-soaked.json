@@ -3,7 +3,7 @@
   tags: ["papyrus-strip", "soaked-papyrus-strip"],
   shape: { base: "item/resource/papyrusstrips" },
   textures: {
-    strips: { base: "item/resource/papyrusstrips-soaked" }
+    "texture.png": { base: "item/resource/papyrusstrips-soaked" }
   },
   creativeinventory: { "general": ["*"], "items": ["*"] },
   maxstacksize: 64,

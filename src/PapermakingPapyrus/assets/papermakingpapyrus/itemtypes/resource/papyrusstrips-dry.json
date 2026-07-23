@@ -3,7 +3,7 @@
   tags: ["papyrus-strip", "barrel-soakable"],
   shape: { base: "item/resource/papyrusstrips" },
   textures: {
-    strips: { base: "item/resource/papyrusstrips-dry" }
+    "texture.png": { base: "item/resource/papyrusstrips-dry" }
   },
   creativeinventory: { "general": ["*"], "items": ["*"] },
   maxstacksize: 64,
