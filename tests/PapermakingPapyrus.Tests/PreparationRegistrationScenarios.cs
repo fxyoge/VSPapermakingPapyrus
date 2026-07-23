@@ -24,8 +24,11 @@ public sealed class PreparationRegistrationScenarios : AtlasScenarioBase
         Assert.NotNull(knife);
         Assert.Equal(64, dry.MaxStackSize);
         Assert.Equal(64, soaked.MaxStackSize);
-        Assert.True((tops.StorageFlags & EnumItemStorageFlags.Offhand) != 0);
-        Assert.NotNull(knife.GetCollectibleBehavior<CollectibleBehaviorPapyrusTopCutting>(true));
+        var knifeTag = World.Api.CollectibleTagRegistry.CreateTagSet(PapyrusConstants.KnifeTag);
+        Assert.All(
+            World.Api.World.Items.Where(item => item?.Code != null && item.Tags.Overlaps(knifeTag)),
+            item => Assert.True((item.StorageFlags & EnumItemStorageFlags.Offhand) != 0));
+        Assert.NotNull(tops.GetCollectibleBehavior<CollectibleBehaviorPapyrusTopCutting>(true));
         Assert.NotNull(tops.GetCollectibleBehavior<CollectibleBehaviorGroundStorable>(true));
         Assert.Contains(
             World.Api.World.GridRecipes,
@@ -49,19 +52,26 @@ public sealed class PreparationRegistrationScenarios : AtlasScenarioBase
         var tops = Assert.IsType<Item>(
             World.Api.World.GetItem(new AssetLocation(PapyrusConstants.PapyrusTopsCode)));
 
-        var knifeSlot = player.Player.InventoryManager.ActiveHotbarSlot;
-        knifeSlot.Itemstack = new ItemStack(knife);
-        var topsSlot = new DummySlot(new ItemStack(tops, 2));
+        var papyrusSlot = player.Player.InventoryManager.ActiveHotbarSlot;
+        papyrusSlot.Itemstack = new ItemStack(tops, 2);
+        var knifeSlot = new DummySlot(new ItemStack(knife));
         Assert.Equal(
-            2,
-            topsSlot.TryPutInto(World.Api.World, player.Entity.LeftHandItemSlot, 2));
+            1,
+            knifeSlot.TryPutInto(World.Api.World, player.Entity.LeftHandItemSlot));
+        var durability = knife.GetRemainingDurability(player.Entity.LeftHandItemSlot.Itemstack);
 
         var handling = EnumHandHandling.NotHandled;
-        knife.OnHeldInteractStart(knifeSlot, player.Entity, null!, null!, true, ref handling);
-        knife.OnHeldInteractStop(1.5f, knifeSlot, player.Entity, null!, null!);
+        tops.OnHeldInteractStart(papyrusSlot, player.Entity, null!, null!, true, ref handling);
+        Assert.Equal(EnumHandHandling.PreventDefault, handling);
+        Assert.True(tops.OnHeldInteractStep(0.75f, papyrusSlot, player.Entity, null!, null!));
+        Assert.False(tops.OnHeldInteractStep(1.5f, papyrusSlot, player.Entity, null!, null!));
+        tops.OnHeldInteractStop(1.5f, papyrusSlot, player.Entity, null!, null!);
         await World.Ticks(2);
 
-        Assert.Equal(1, player.Entity.LeftHandItemSlot.StackSize);
+        Assert.Equal(1, papyrusSlot.StackSize);
+        Assert.Equal(
+            durability - 1,
+            knife.GetRemainingDurability(player.Entity.LeftHandItemSlot.Itemstack));
         Assert.Equal(
             2,
             player.Player.InventoryManager.Inventories
@@ -79,25 +89,27 @@ public sealed class PreparationRegistrationScenarios : AtlasScenarioBase
         var tops = Assert.IsType<Item>(
             World.Api.World.GetItem(new AssetLocation(PapyrusConstants.PapyrusTopsCode)));
 
-        var knifeSlot = player.Player.InventoryManager.ActiveHotbarSlot;
-        knifeSlot.Itemstack = new ItemStack(knife);
-        var topsSlot = new DummySlot(new ItemStack(tops, 1));
+        var papyrusSlot = player.Player.InventoryManager.ActiveHotbarSlot;
+        papyrusSlot.Itemstack = new ItemStack(tops, 1);
+        var knifeSlot = new DummySlot(new ItemStack(knife));
         Assert.Equal(
             1,
-            topsSlot.TryPutInto(World.Api.World, player.Entity.LeftHandItemSlot));
-        var durability = knife.GetRemainingDurability(knifeSlot.Itemstack);
+            knifeSlot.TryPutInto(World.Api.World, player.Entity.LeftHandItemSlot));
+        var durability = knife.GetRemainingDurability(player.Entity.LeftHandItemSlot.Itemstack);
 
-        knife.OnHeldInteractCancel(
+        tops.OnHeldInteractCancel(
             0.75f,
-            knifeSlot,
+            papyrusSlot,
             player.Entity,
             null!,
             null!,
             EnumItemUseCancelReason.ReleasedMouse);
         await World.Ticks(2);
 
-        Assert.Equal(1, player.Entity.LeftHandItemSlot.StackSize);
-        Assert.Equal(durability, knife.GetRemainingDurability(knifeSlot.Itemstack));
+        Assert.Equal(1, papyrusSlot.StackSize);
+        Assert.Equal(
+            durability,
+            knife.GetRemainingDurability(player.Entity.LeftHandItemSlot.Itemstack));
     }
 
     [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
@@ -124,9 +136,10 @@ public sealed class PreparationRegistrationScenarios : AtlasScenarioBase
 
     private Item FindKnife()
     {
+        var knifeTag = World.Api.CollectibleTagRegistry.CreateTagSet(PapyrusConstants.KnifeTag);
         return Assert.IsAssignableFrom<Item>(
             World.Api.World.Items.FirstOrDefault(
                 item => item?.Durability > 0 &&
-                    item.GetCollectibleBehavior<CollectibleBehaviorPapyrusTopCutting>(true) != null));
+                    item.Tags.Overlaps(knifeTag)));
     }
 }

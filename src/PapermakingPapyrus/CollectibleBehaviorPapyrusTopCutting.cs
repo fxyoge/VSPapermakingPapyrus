@@ -1,18 +1,24 @@
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
-using Vintagestory.API.Config;
+using Vintagestory.API.Datastructures;
 
 namespace PapermakingPapyrus;
 
 public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collObj)
     : CollectibleBehavior(collObj)
 {
+    private const string CuttingAnimation = "squeezehoneycomb";
+
     private ICoreAPI? api;
+    private TagSet knifeTag;
+    private bool knifeTagLoaded;
 
     public override void OnLoaded(ICoreAPI api)
     {
         this.api = api;
+        knifeTag = api.CollectibleTagRegistry.CreateTagSet(PapyrusConstants.KnifeTag);
+        knifeTagLoaded = true;
     }
 
     public override void OnHeldInteractStart(
@@ -32,7 +38,7 @@ public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collO
 
         handHandling = EnumHandHandling.PreventDefault;
         handling = EnumHandling.PreventDefault;
-        byEntity.StartAnimation("knifestab");
+        byEntity.StartAnimation(CuttingAnimation);
     }
 
     public override bool OnHeldInteractStep(
@@ -64,7 +70,7 @@ public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collO
         ref EnumHandling handling)
     {
         handling = EnumHandling.PreventDefault;
-        byEntity.StopAnimation("knifestab");
+        byEntity.StopAnimation(CuttingAnimation);
 
         if (byEntity.World.Side != EnumAppSide.Server ||
             !PapyrusCuttingRules.HasCompleted(
@@ -84,10 +90,11 @@ public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collO
             return;
         }
 
-        var offhand = byEntity.LeftHandItemSlot!;
-        offhand.TakeOut(1);
-        offhand.MarkDirty();
-        slot.Itemstack!.Collectible.DamageItem(byEntity.World, byEntity, slot, 1);
+        slot.TakeOut(1);
+        slot.MarkDirty();
+
+        var knifeSlot = byEntity.LeftHandItemSlot!;
+        knifeSlot.Itemstack!.Collectible.DamageItem(byEntity.World, byEntity, knifeSlot, 1);
 
         var output = new ItemStack(
             dryStrips,
@@ -114,38 +121,43 @@ public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collO
         ref EnumHandling handling)
     {
         handling = EnumHandling.PreventDefault;
-        byEntity.StopAnimation("knifestab");
+        byEntity.StopAnimation(CuttingAnimation);
         return true;
     }
 
     public override WorldInteraction[] GetHeldInteractionHelp(ItemSlot inSlot, ref EnumHandling handling)
     {
         handling = EnumHandling.PassThrough;
-        var papyrusTops = api?.World.GetItem(new AssetLocation(PapyrusConstants.PapyrusTopsCode));
-        if (papyrusTops == null)
+        if (api == null || !knifeTagLoaded)
         {
             return [];
         }
 
-        return
-        [
-            new WorldInteraction
-            {
-                ActionLangCode = PapyrusConstants.Domain + ":heldhelp-cut-papyrus",
-                MouseButton = EnumMouseButton.Right,
-                Itemstacks =
-                [
-                    new ItemStack(papyrusTops)
-                ]
-            }
-        ];
+        var knives = api.World.Items
+            .Where(item => item?.Code != null && item.Tags.Overlaps(knifeTag))
+            .Select(item => new ItemStack(item))
+            .ToArray();
+
+        return knives.Length == 0
+            ? []
+            :
+            [
+                new WorldInteraction
+                {
+                    ActionLangCode = PapyrusConstants.Domain + ":heldhelp-cut-papyrus",
+                    MouseButton = EnumMouseButton.Right,
+                    Itemstacks = knives
+                }
+            ];
     }
 
-    private bool CanCut(ItemSlot knifeSlot, EntityAgent byEntity)
+    private bool CanCut(ItemSlot papyrusSlot, EntityAgent byEntity)
     {
-        return knifeSlot.Itemstack?.Collectible == collObj &&
-            collObj.GetRemainingDurability(knifeSlot.Itemstack) > 0 &&
-            byEntity.LeftHandItemSlot?.Itemstack?.Collectible?.Code?.ToString() ==
-                PapyrusConstants.PapyrusTopsCode;
+        var knifeSlot = byEntity.LeftHandItemSlot;
+        return papyrusSlot.Itemstack?.Collectible == collObj &&
+            knifeSlot?.Itemstack != null &&
+            knifeTagLoaded &&
+            knifeSlot.Itemstack.Collectible.Tags.Overlaps(knifeTag) &&
+            knifeSlot.Itemstack.Collectible.GetRemainingDurability(knifeSlot.Itemstack) > 0;
     }
 }

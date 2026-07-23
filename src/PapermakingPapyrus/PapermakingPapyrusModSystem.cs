@@ -1,4 +1,3 @@
-using HarmonyLib;
 using Newtonsoft.Json.Linq;
 using Vintagestory.API.Common;
 using Vintagestory.API.Datastructures;
@@ -7,9 +6,6 @@ namespace PapermakingPapyrus;
 
 public sealed class PapermakingPapyrusModSystem : ModSystem
 {
-    private const string HarmonyId = "papermakingpapyrus.knife-stop-forwarding";
-    private Harmony? harmony;
-
     internal static PapermakingPapyrusConfig Config { get; private set; } = new();
 
     public override void Start(ICoreAPI api)
@@ -17,15 +13,6 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
         api.RegisterCollectibleBehaviorClass(
             "PapyrusTopCutting",
             typeof(CollectibleBehaviorPapyrusTopCutting));
-
-        harmony = new Harmony(HarmonyId);
-        PapyrusKnifeStopPatch.Apply(harmony);
-    }
-
-    public override void Dispose()
-    {
-        harmony?.UnpatchAll(HarmonyId);
-        harmony = null;
     }
 
     public override void AssetsLoaded(ICoreAPI api)
@@ -43,32 +30,30 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
     public override void AssetsFinalize(ICoreAPI api)
     {
         var papyrusTops = api.World.GetItem(new AssetLocation(PapyrusConstants.PapyrusTopsCode));
-        if (papyrusTops != null)
+        if (papyrusTops != null &&
+            papyrusTops.GetCollectibleBehavior<CollectibleBehaviorPapyrusTopCutting>(true) == null)
         {
-            papyrusTops.StorageFlags |= EnumItemStorageFlags.Offhand;
+            var behavior = new CollectibleBehaviorPapyrusTopCutting(papyrusTops);
+            behavior.Initialize(new JsonObject(new JObject()));
+            behavior.OnLoaded(api);
+            papyrusTops.CollectibleBehaviors = [.. papyrusTops.CollectibleBehaviors, behavior];
         }
 
         var knifeTag = api.CollectibleTagRegistry.CreateTagSet(PapyrusConstants.KnifeTag);
-        var attached = 0;
-
+        var preparedKnives = 0;
         foreach (var item in api.World.Items)
         {
-            if (item?.Code == null ||
-                !item.Tags.Overlaps(knifeTag) ||
-                item.GetCollectibleBehavior<CollectibleBehaviorPapyrusTopCutting>(true) != null)
+            if (item?.Code == null || !item.Tags.Overlaps(knifeTag))
             {
                 continue;
             }
 
-            var behavior = new CollectibleBehaviorPapyrusTopCutting(item);
-            behavior.Initialize(new JsonObject(new JObject()));
-            behavior.OnLoaded(api);
-            item.CollectibleBehaviors = [.. item.CollectibleBehaviors, behavior];
-            attached++;
+            item.StorageFlags |= EnumItemStorageFlags.Offhand;
+            preparedKnives++;
         }
 
         api.Logger.Notification(
-            "[Papermaking: Papyrus] Prepared {0} tagged knife item type(s) for papyrus cutting.",
-            attached);
+            "[Papermaking: Papyrus] Prepared {0} tagged knife item type(s) for offhand cutting.",
+            preparedKnives);
     }
 }
