@@ -7,7 +7,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
-    <VINTAGE_STORY Condition="'$(VINTAGE_STORY)' == ''">/workspaces/vintage-story-Game/active/files/extra/vintagestory</VINTAGE_STORY>
+    <VINTAGE_STORY Condition="'$(VINTAGE_STORY)' == ''">/var/lib/flatpak/app/at.vintagestory.VintageStory/x86_64/stable/active/files/extra/vintagestory</VINTAGE_STORY>
   </PropertyGroup>
 </Project>
 
