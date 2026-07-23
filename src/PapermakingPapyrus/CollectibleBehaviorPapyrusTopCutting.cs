@@ -84,8 +84,8 @@ public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collO
         var dryStrips = api?.World.GetItem(new AssetLocation(PapyrusConstants.DryStripsCode));
         if (dryStrips == null)
         {
-            api?.Logger.Error(
-                "[Papermaking: Papyrus] Cannot complete cutting: {0} is not registered.",
+            PapermakingPapyrusModSystem.Logger?.Error(
+                "Cannot complete cutting: {0} is not registered.",
                 PapyrusConstants.DryStripsCode);
             return;
         }

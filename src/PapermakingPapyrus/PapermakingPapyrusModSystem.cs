@@ -8,8 +8,12 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
 {
     internal static PapermakingPapyrusConfig Config { get; private set; } = new();
 
+    internal static ILogger? Logger { get; private set; }
+
     public override void Start(ICoreAPI api)
     {
+        Logger = Mod.Logger;
+
         api.RegisterCollectibleBehaviorClass(
             "PapyrusTopCutting",
             typeof(CollectibleBehaviorPapyrusTopCutting));
@@ -18,7 +22,29 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
     public override void AssetsLoaded(ICoreAPI api)
     {
         var config = api.LoadModConfig<PapermakingPapyrusConfig>("papermakingpapyrus.json") ?? new();
-        config.Validate();
+        var originalCuttingDurationSeconds = config.CuttingDurationSeconds;
+        var originalDryStripsPerPapyrusTop = config.DryStripsPerPapyrusTop;
+
+        config.Sanitize();
+
+        if (!originalCuttingDurationSeconds.Equals(config.CuttingDurationSeconds))
+        {
+            Mod.Logger.Warning(
+                "Invalid {0} value {1}; using {2}.",
+                nameof(config.CuttingDurationSeconds),
+                originalCuttingDurationSeconds,
+                config.CuttingDurationSeconds);
+        }
+
+        if (originalDryStripsPerPapyrusTop != config.DryStripsPerPapyrusTop)
+        {
+            Mod.Logger.Warning(
+                "Invalid {0} value {1}; using {2}.",
+                nameof(config.DryStripsPerPapyrusTop),
+                originalDryStripsPerPapyrusTop,
+                config.DryStripsPerPapyrusTop);
+        }
+
         Config = config;
 
         if (api.Side == EnumAppSide.Server)
@@ -52,8 +78,8 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
             preparedKnives++;
         }
 
-        api.Logger.Notification(
-            "[Papermaking: Papyrus] Prepared {0} tagged knife item type(s) for offhand cutting.",
+        Mod.Logger.Notification(
+            "Prepared {0} tagged knife item type(s) for offhand cutting.",
             preparedKnives);
     }
 }
