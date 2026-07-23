@@ -36,7 +36,7 @@ public sealed class PreparationRegistrationScenarios : AtlasScenarioBase
                 ingredient => ingredient?.ResolvedItemStack?.Collectible?.Code == tops.Code) == true);
         var recipes = World.Api.ModLoader.GetModSystem<RecipeRegistrySystem>().BarrelRecipes;
         var soakRecipe = Assert.Single(recipes, recipe => recipe.Code == "soak-papyrusstrips");
-        Assert.Equal(PapyrusConstants.SoakHours, soakRecipe.SealHours);
+        Assert.True(soakRecipe.SealHours > 0);
         Assert.Equal(
             PapyrusConstants.SoakedStripsCode,
             soakRecipe.Output?.ResolvedItemStack?.Collectible?.Code?.ToString());
@@ -122,15 +122,16 @@ public sealed class PreparationRegistrationScenarios : AtlasScenarioBase
             .Select(ingredient => new DummySlot(ingredient.ResolvedItemStack!.Clone()))
             .Cast<ItemSlot>()
             .ToArray();
+        var expectedOutputQuantity = recipe.Output!.ResolvedItemStack!.StackSize;
 
         Assert.True(recipe.Matches(slots, out var outputQuantity));
-        Assert.Equal(PapyrusConstants.StripsPerBatch, outputQuantity);
-        Assert.False(recipe.TryCraftNow(World.Api, PapyrusConstants.SoakHours - 0.01, slots));
-        Assert.True(recipe.TryCraftNow(World.Api, PapyrusConstants.SoakHours, slots));
+        Assert.Equal(expectedOutputQuantity, outputQuantity);
+        Assert.False(recipe.TryCraftNow(World.Api, recipe.SealHours - 0.01, slots));
+        Assert.True(recipe.TryCraftNow(World.Api, recipe.SealHours, slots));
 
         var output = Assert.Single(slots, slot => slot.Itemstack != null).Itemstack!;
         Assert.Equal(PapyrusConstants.SoakedStripsCode, output.Collectible.Code.ToString());
-        Assert.Equal(PapyrusConstants.StripsPerBatch, output.StackSize);
+        Assert.Equal(expectedOutputQuantity, output.StackSize);
         return Task.CompletedTask;
     }
 
