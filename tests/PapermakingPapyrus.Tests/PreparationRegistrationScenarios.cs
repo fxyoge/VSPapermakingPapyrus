@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Atlas.Api;
 using Atlas.XUnit;
 using Vintagestory.API.Common;
+using Vintagestory.API.Common.Entities;
 using Vintagestory.GameContent;
 using Xunit;
 
@@ -113,6 +114,83 @@ public sealed class PreparationRegistrationScenarios : AtlasScenarioBase
     }
 
     [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
+    public async Task CuttingRejectsAnUntaggedOffhandItemWithoutMutation()
+    {
+        var player = await World.JoinPlayer("InvalidTool");
+        var tops = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.PapyrusTopsCode)));
+        var invalidTool = Assert.IsType<Item>(
+            World.Api.World.Items.First(
+                item => item?.Code != null &&
+                    !item.Tags.Overlaps(
+                        World.Api.CollectibleTagRegistry.CreateTagSet(PapyrusConstants.KnifeTag))));
+
+        var papyrusSlot = player.Player.InventoryManager.ActiveHotbarSlot;
+        papyrusSlot.Itemstack = new ItemStack(tops, 1);
+        player.Entity.LeftHandItemSlot.Itemstack = new ItemStack(invalidTool, 1);
+
+        var handling = EnumHandHandling.NotHandled;
+        tops.OnHeldInteractStart(papyrusSlot, player.Entity, null!, null!, true, ref handling);
+        tops.OnHeldInteractStop(2f, papyrusSlot, player.Entity, null!, null!);
+        await World.Ticks(2);
+
+        Assert.Equal(EnumHandHandling.NotHandled, handling);
+        Assert.Equal(1, papyrusSlot.StackSize);
+        Assert.Equal(1, player.Entity.LeftHandItemSlot.StackSize);
+        Assert.Equal(0, CountInventoryStrips(player));
+    }
+
+    [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
+    public async Task CompletedCuttingDropsOutputWhenInventoryIsFull()
+    {
+        var player = await World.JoinPlayer("FullInventory");
+        var knife = FindKnife();
+        var tops = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.PapyrusTopsCode)));
+        var filler = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode)));
+
+        var papyrusSlot = player.Player.InventoryManager.ActiveHotbarSlot;
+        papyrusSlot.Itemstack = new ItemStack(tops, 2);
+        player.Entity.LeftHandItemSlot.Itemstack = new ItemStack(knife);
+        foreach (var inventory in player.Player.InventoryManager.Inventories
+                     .Where(entry => !entry.Key.StartsWith("creative", StringComparison.Ordinal))
+                     .Select(entry => entry.Value))
+        {
+            foreach (var slot in inventory)
+            {
+                if (ReferenceEquals(slot, papyrusSlot) ||
+                    ReferenceEquals(slot, player.Entity.LeftHandItemSlot))
+                {
+                    continue;
+                }
+
+                slot.Itemstack = new ItemStack(filler, filler.MaxStackSize);
+            }
+        }
+
+        var handling = EnumHandHandling.NotHandled;
+        tops.OnHeldInteractStart(papyrusSlot, player.Entity, null!, null!, true, ref handling);
+        tops.OnHeldInteractStop(2f, papyrusSlot, player.Entity, null!, null!);
+        await World.Ticks(2);
+
+        var droppedStrips = World.Api.World
+            .GetEntitiesAround(
+                player.Entity.Pos.XYZ,
+                3,
+                3,
+                entity => entity is EntityItem item &&
+                    item.Itemstack?.Collectible?.Code?.ToString() == PapyrusConstants.DryStripsCode)
+            .OfType<EntityItem>()
+            .Sum(item => item.Itemstack.StackSize);
+
+        Assert.Equal(EnumHandHandling.PreventDefault, handling);
+        Assert.Equal(1, papyrusSlot.StackSize);
+        Assert.Equal(0, CountInventoryStrips(player));
+        Assert.Equal(PapermakingPapyrusConfig.DefaultDryStripsPerPapyrusTop, droppedStrips);
+    }
+
+    [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
     public Task BarrelRecipeRequiresFullSealedTimeAndConsumesInputs()
     {
         var recipe = Assert.Single(
@@ -142,5 +220,14 @@ public sealed class PreparationRegistrationScenarios : AtlasScenarioBase
             World.Api.World.Items.FirstOrDefault(
                 item => item?.Durability > 0 &&
                     item.Tags.Overlaps(knifeTag)));
+    }
+
+    private static int CountInventoryStrips(ITestPlayer player)
+    {
+        return player.Player.InventoryManager.Inventories
+            .Where(entry => !entry.Key.StartsWith("creative", StringComparison.Ordinal))
+            .SelectMany(entry => entry.Value)
+            .Where(slot => slot.Itemstack?.Collectible?.Code?.ToString() == PapyrusConstants.DryStripsCode)
+            .Sum(slot => slot.StackSize);
     }
 }
