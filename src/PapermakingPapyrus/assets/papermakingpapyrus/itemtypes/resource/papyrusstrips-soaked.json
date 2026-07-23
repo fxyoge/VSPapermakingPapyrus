@@ -15,9 +15,10 @@
     soakedPapyrusStrip: true
   },
   guiTransform: {
+    translation: { x: 0, y: -6, z: 0 },
     rotation: { x: 110, y: 32, z: 8 },
     origin: { x: 0.5, y: 0.35, z: 0.5 },
-    scale: 2.25
+    scale: 1.75
   },
   tpHandTransform: {
     translation: { x: -0.67, y: 0, z: -0.63 },
