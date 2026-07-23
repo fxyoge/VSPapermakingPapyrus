@@ -22,28 +22,7 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
     public override void AssetsLoaded(ICoreAPI api)
     {
         var config = api.LoadModConfig<PapermakingPapyrusConfig>("papermakingpapyrus.json") ?? new();
-        var originalCuttingDurationSeconds = config.CuttingDurationSeconds;
-        var originalDryStripsPerPapyrusTop = config.DryStripsPerPapyrusTop;
-
         config.Sanitize();
-
-        if (!originalCuttingDurationSeconds.Equals(config.CuttingDurationSeconds))
-        {
-            Mod.Logger.Warning(
-                "Invalid {0} value {1}; using {2}.",
-                nameof(config.CuttingDurationSeconds),
-                originalCuttingDurationSeconds,
-                config.CuttingDurationSeconds);
-        }
-
-        if (originalDryStripsPerPapyrusTop != config.DryStripsPerPapyrusTop)
-        {
-            Mod.Logger.Warning(
-                "Invalid {0} value {1}; using {2}.",
-                nameof(config.DryStripsPerPapyrusTop),
-                originalDryStripsPerPapyrusTop,
-                config.DryStripsPerPapyrusTop);
-        }
 
         Config = config;
 
