@@ -1,0 +1,25 @@
+[
+  {
+    code: "soak-papyrusstrips",
+    sealHours: 12,
+    ingredients: [
+      {
+        type: "item",
+        code: "game:waterportion",
+        litres: 4,
+        consumeLitres: 4
+      },
+      {
+        type: "item",
+        code: "papermakingpapyrus:papyrusstrips-dry",
+        quantity: 8
+      }
+    ],
+    output: {
+      type: "item",
+      code: "papermakingpapyrus:papyrusstrips-soaked",
+      stackSize: 8
+    }
+  }
+]
+

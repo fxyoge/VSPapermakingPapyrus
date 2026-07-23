@@ -1,0 +1,34 @@
+{
+  code: "papyrusstrips-dry",
+  tags: ["papyrus-strip", "barrel-soakable"],
+  shape: { base: "item/resource/papyrusstrips" },
+  textures: {
+    strips: { base: "item/resource/papyrusstrips-dry" }
+  },
+  creativeinventory: { "general": ["*"], "items": ["*"] },
+  maxstacksize: 64,
+  materialDensity: 110,
+  attributes: {
+    displaycaseable: true,
+    shelvable: true,
+    papyrusStrip: true,
+    soakedPapyrusStrip: false
+  },
+  guiTransform: {
+    rotation: { x: 110, y: 32, z: 8 },
+    origin: { x: 0.5, y: 0.35, z: 0.5 },
+    scale: 2.25
+  },
+  tpHandTransform: {
+    translation: { x: -0.67, y: 0, z: -0.63 },
+    rotation: { x: 70, y: 5, z: -5 },
+    origin: { x: 0.5, y: 0, z: 0.5 },
+    scale: 0.8
+  },
+  groundTransform: {
+    translation: { x: 0, y: 0.12, z: 0 },
+    rotation: { x: 0, y: 15, z: 0 },
+    origin: { x: 0.5, y: 0.2, z: 0.5 },
+    scale: 3.5
+  }
+}

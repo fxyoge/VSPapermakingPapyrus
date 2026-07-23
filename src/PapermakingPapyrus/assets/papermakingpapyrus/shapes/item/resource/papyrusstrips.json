@@ -1,0 +1,55 @@
+{
+  textureWidth: 32,
+  textureHeight: 32,
+  textures: {
+    strips: "papermakingpapyrus:item/resource/papyrusstrips-dry"
+  },
+  elements: [
+    {
+      name: "strip-1",
+      from: [2, 7.2, 5],
+      to: [14, 7.8, 7],
+      rotationOrigin: [8, 8, 8],
+      rotationY: -5,
+      faces: {
+        up: { texture: "#strips", uv: [0, 0, 16, 4] },
+        down: { texture: "#strips", uv: [0, 0, 16, 4] },
+        north: { texture: "#strips", uv: [0, 4, 16, 5] },
+        south: { texture: "#strips", uv: [0, 4, 16, 5] },
+        east: { texture: "#strips", uv: [0, 4, 2, 5] },
+        west: { texture: "#strips", uv: [0, 4, 2, 5] }
+      }
+    },
+    {
+      name: "strip-2",
+      from: [2, 7.8, 7],
+      to: [14, 8.4, 9],
+      rotationOrigin: [8, 8, 8],
+      rotationY: 3,
+      faces: {
+        up: { texture: "#strips", uv: [0, 6, 16, 10] },
+        down: { texture: "#strips", uv: [0, 6, 16, 10] },
+        north: { texture: "#strips", uv: [0, 10, 16, 11] },
+        south: { texture: "#strips", uv: [0, 10, 16, 11] },
+        east: { texture: "#strips", uv: [0, 10, 2, 11] },
+        west: { texture: "#strips", uv: [0, 10, 2, 11] }
+      }
+    },
+    {
+      name: "strip-3",
+      from: [2, 8.4, 9],
+      to: [14, 9, 11],
+      rotationOrigin: [8, 8, 8],
+      rotationY: -2,
+      faces: {
+        up: { texture: "#strips", uv: [0, 12, 16, 16] },
+        down: { texture: "#strips", uv: [0, 12, 16, 16] },
+        north: { texture: "#strips", uv: [0, 16, 16, 17] },
+        south: { texture: "#strips", uv: [0, 16, 16, 17] },
+        east: { texture: "#strips", uv: [0, 16, 2, 17] },
+        west: { texture: "#strips", uv: [0, 16, 2, 17] }
+      }
+    }
+  ]
+}
+

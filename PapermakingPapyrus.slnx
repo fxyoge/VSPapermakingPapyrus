@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PapermakingPapyrus/PapermakingPapyrus.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PapermakingPapyrus.Tests/PapermakingPapyrus.Tests.csproj" />
+  </Folder>
+</Solution>
+

@@ -1,0 +1,16 @@
+{
+  "type": "code",
+  "modid": "papermakingpapyrus",
+  "name": "Papermaking: Papyrus",
+  "authors": ["fxyoge"],
+  "description": "Makes papyrus through cut, soaked, crossed, and pressed pith strips.",
+  "version": "0.1.0",
+  "side": "universal",
+  "requiredOnClient": true,
+  "requiredOnServer": true,
+  "dependencies": {
+    "game": "1.22.0",
+    "survival": "1.22.0"
+  }
+}
+
