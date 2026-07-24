@@ -186,36 +186,92 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
             return true;
         }
 
-        var elements = Enumerable.Range(1, stripCount)
+        var stripElements = Enumerable.Range(1, stripCount)
             .Select(index => $"root/strip{index}")
-            .Concat(Enumerable.Range(1, boardCount).Select(index => $"root/board{index}"))
+            .ToArray();
+        var pressElements = Enumerable.Range(1, boardCount)
+            .Select(index => $"root/board{index}")
             .Concat(hasWeight ? ["root/weight"] : [])
             .ToArray();
-        tesselator.TesselateShape(
-            "papyrus pile",
-            shape,
-            out var mesh,
-            new PapyrusPileTextureSource(
-                capi,
-                inventory[8].Itemstack,
-                inventory[9].Itemstack,
-                inventory[10].Itemstack,
-                visualBand),
-            new Vec3f(0, Orientation * GameMath.RAD2DEG, 0),
-            selectiveElements: elements);
-        if (hasWeight)
+        var textureSource = new PapyrusPileTextureSource(
+            capi,
+            inventory[8].Itemstack,
+            inventory[9].Itemstack,
+            inventory[10].Itemstack,
+            visualBand);
+        var rotation = new Vec3f(0, Orientation * GameMath.RAD2DEG, 0);
+
+        if (!hasWeight)
         {
-            var scaleY = visualBand switch
-            {
-                0 => 1f,
-                1 => 0.94f,
-                2 => 0.88f,
-                _ => 0.82f
-            };
-            mesh.Scale(new Vec3f(0.5f, 0, 0.5f), 1, scaleY, 1);
+            tesselator.TesselateShape(
+                "papyrus pile",
+                shape,
+                out var mesh,
+                textureSource,
+                rotation,
+                selectiveElements: stripElements.Concat(pressElements).ToArray());
+            mesher.AddMeshData(mesh);
+            return true;
         }
-        mesher.AddMeshData(mesh);
+
+        tesselator.TesselateShape(
+            "papyrus pile strips",
+            shape,
+            out var stripMesh,
+            textureSource,
+            rotation,
+            selectiveElements: stripElements);
+        tesselator.TesselateShape(
+            "papyrus pile press",
+            shape,
+            out var pressMesh,
+            textureSource,
+            rotation,
+            selectiveElements: pressElements);
+
+        var scaleY = visualBand switch
+        {
+            0 => 1f,
+            1 => 0.94f,
+            2 => 0.88f,
+            _ => 0.82f
+        };
+        if (TryGetVerticalBounds(stripMesh, out var stripBottom, out var stripTop))
+        {
+            var compression = PapyrusPileCompression.Calculate(stripBottom, stripTop, scaleY);
+            stripMesh.Scale(
+                new Vec3f(0.5f, compression.ScaleOriginY, 0.5f),
+                1,
+                compression.ScaleY,
+                1);
+            pressMesh.Translate(0, compression.PressOffsetY, 0);
+        }
+
+        mesher.AddMeshData(stripMesh);
+        mesher.AddMeshData(pressMesh);
         return true;
+    }
+
+    private static bool TryGetVerticalBounds(
+        MeshData mesh,
+        out float bottom,
+        out float top)
+    {
+        bottom = float.PositiveInfinity;
+        top = float.NegativeInfinity;
+        for (var index = 1; index < mesh.GetVerticesCount() * 3; index += 3)
+        {
+            var y = mesh.xyz[index];
+            if (!float.IsFinite(y))
+            {
+                return false;
+            }
+
+            bottom = Math.Min(bottom, y);
+            top = Math.Max(top, y);
+        }
+
+        return float.IsFinite(bottom) && float.IsFinite(top) && top > bottom;
     }
 
     private bool Add(ItemSlot source, int targetIndex, ref int count, bool consume)
