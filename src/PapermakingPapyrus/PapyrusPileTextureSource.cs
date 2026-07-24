@@ -13,12 +13,19 @@ internal sealed class PapyrusPileTextureSource : ITexPositionSource
         ICoreClientAPI capi,
         ItemStack? board1,
         ItemStack? board2,
-        ItemStack? weight)
+        ItemStack? weight,
+        int visualBand)
     {
         this.capi = capi;
         textures = new Dictionary<string, AssetLocation>
         {
-            ["papyrus"] = new(PapyrusConstants.Domain, "item/resource/papyrussheet-soaked"),
+            ["papyrus"] = new(PapyrusConstants.Domain, visualBand switch
+            {
+                1 => "item/resource/papyrussheet-damp",
+                2 => "item/resource/papyrussheet-mostlydry",
+                3 => "item/resource/papyrussheet-dry",
+                _ => "item/resource/papyrussheet-soaked"
+            }),
             ["board1"] = ResolveBoard(board1),
             ["board2"] = ResolveBoard(board2),
             ["stone"] = ResolveStone(weight)
@@ -50,7 +57,7 @@ internal sealed class PapyrusPileTextureSource : ITexPositionSource
         ItemStack? stack,
         AssetLocation fallback)
     {
-        IDictionary<string, CompositeTexture>? textures = stack?.Collectible switch
+        var textures = stack?.Collectible switch
         {
             Item item => item.Textures,
             Block block => block.Textures,

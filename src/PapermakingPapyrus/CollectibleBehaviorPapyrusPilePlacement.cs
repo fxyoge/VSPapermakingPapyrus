@@ -68,6 +68,8 @@ public sealed class CollectibleBehaviorPapyrusPilePlacement(CollectibleObject co
         }
 
         pile.Orientation = byEntity.Pos.Yaw;
-        pile.AddInitialStrip(slot);
+        pile.AddInitialStrip(
+            slot,
+            entityPlayer.Player.WorldData.CurrentGameMode != EnumGameMode.Creative);
     }
 }

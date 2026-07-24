@@ -64,4 +64,41 @@ public sealed class PapyrusPileStateTests
         Assert.Equal(PapyrusPileAction.None, pressing.NextAction(false, false, true, false));
         Assert.Equal(PapyrusPileAction.None, pressing.NextAction(false, false, false, true));
     }
+
+    [Theory]
+    [InlineData(0, 6, 24, false, 0.25)]
+    [InlineData(0.5, 12, 24, false, 1)]
+    [InlineData(0.5, 12, 24, true, 0.5)]
+    [InlineData(0.5, -1, 24, false, 0.5)]
+    public void DryingAdvanceIsNormalizedAndFreezeAware(
+        double start,
+        double elapsed,
+        double duration,
+        bool freezing,
+        double expected)
+    {
+        Assert.Equal(expected, PapyrusDrying.Advance(start, elapsed, duration, freezing), 8);
+    }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(0.249, 0)]
+    [InlineData(0.25, 1)]
+    [InlineData(0.5, 2)]
+    [InlineData(0.75, 3)]
+    [InlineData(1, 3)]
+    public void VisualBandsAreStable(double progress, int expected)
+    {
+        Assert.Equal(expected, PapyrusDrying.VisualBand(progress));
+    }
+
+    [Fact]
+    public void DrySnapshotIsValidAndRemainsCommitted()
+    {
+        var dry = new PapyrusPileSnapshot(8, 2, true, PapyrusPileWorkState.Dry);
+
+        Assert.True(dry.IsValid);
+        Assert.True(dry.IsCommitted);
+        Assert.Equal(PapyrusPileAction.None, dry.NextAction(true, false, false, false));
+    }
 }

@@ -9,10 +9,15 @@ public sealed class PapermakingPapyrusConfig
     public const int DefaultDryStripsPerPapyrusTop = 2;
     public const int MinDryStripsPerPapyrusTop = 1;
     public const int MaxDryStripsPerPapyrusTop = 64;
+    public const double DefaultDryingHours = 24;
+    public const double MinDryingHours = 0.1;
+    public const double MaxDryingHours = 24 * 365;
 
     public float CuttingDurationSeconds { get; set; } = DefaultCuttingDurationSeconds;
 
     public int DryStripsPerPapyrusTop { get; set; } = DefaultDryStripsPerPapyrusTop;
+
+    public double DryingHours { get; set; } = DefaultDryingHours;
 
     public void Sanitize()
     {
@@ -60,6 +65,21 @@ public sealed class PapermakingPapyrusConfig
                 MaxDryStripsPerPapyrusTop,
                 originalDryStripsPerPapyrusTop,
                 DryStripsPerPapyrusTop);
+        }
+
+        var originalDryingHours = DryingHours;
+        DryingHours = double.IsFinite(DryingHours)
+            ? Math.Clamp(DryingHours, MinDryingHours, MaxDryingHours)
+            : DefaultDryingHours;
+        if (!originalDryingHours.Equals(DryingHours))
+        {
+            PapermakingPapyrusModSystem.Logger?.Warning(
+                "Config value {0} must be finite and between {1} and {2}; received {3}. Using {4}.",
+                nameof(DryingHours),
+                MinDryingHours,
+                MaxDryingHours,
+                originalDryingHours,
+                DryingHours);
         }
     }
 }

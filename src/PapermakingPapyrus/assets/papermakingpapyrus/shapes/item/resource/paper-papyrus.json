@@ -1,0 +1,22 @@
+{
+  textureWidth: 64,
+  textureHeight: 64,
+  textures: {
+    texture: "papermakingpapyrus:item/resource/paper-papyrus"
+  },
+  elements: [
+    {
+      name: "sheet",
+      from: [2, 7.8, 2],
+      to: [14, 8.2, 14],
+      faces: {
+        north: { texture: "#texture" },
+        east: { texture: "#texture" },
+        south: { texture: "#texture" },
+        west: { texture: "#texture" },
+        up: { texture: "#texture" },
+        down: { texture: "#texture" }
+      }
+    }
+  ]
+}

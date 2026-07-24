@@ -13,6 +13,7 @@ public sealed class PapermakingPapyrusConfigTests
 
         Assert.Equal(PapermakingPapyrusConfig.DefaultCuttingDurationSeconds, config.CuttingDurationSeconds);
         Assert.Equal(PapermakingPapyrusConfig.DefaultDryStripsPerPapyrusTop, config.DryStripsPerPapyrusTop);
+        Assert.Equal(PapermakingPapyrusConfig.DefaultDryingHours, config.DryingHours);
     }
 
     [Theory]
@@ -58,5 +59,20 @@ public sealed class PapermakingPapyrusConfigTests
         config.Sanitize();
 
         Assert.Equal(expected, config.DryStripsPerPapyrusTop);
+    }
+
+    [Theory]
+    [InlineData(double.NaN, PapermakingPapyrusConfig.DefaultDryingHours)]
+    [InlineData(double.PositiveInfinity, PapermakingPapyrusConfig.DefaultDryingHours)]
+    [InlineData(0, PapermakingPapyrusConfig.MinDryingHours)]
+    [InlineData(24, 24)]
+    [InlineData(10000, PapermakingPapyrusConfig.MaxDryingHours)]
+    public void DryingHoursIsSanitized(double value, double expected)
+    {
+        var config = new PapermakingPapyrusConfig { DryingHours = value };
+
+        config.Sanitize();
+
+        Assert.Equal(expected, config.DryingHours);
     }
 }

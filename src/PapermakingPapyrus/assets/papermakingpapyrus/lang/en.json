@@ -9,5 +9,8 @@
   "pile-needs-two-boards": "Needs two boards",
   "pile-needs-one-board": "Needs one board",
   "pile-needs-weight": "Needs stone weight",
-  "pile-pressing": "Pressing and drying"
+  "pile-pressing": "Pressing and drying: {0}:{1:00} remaining",
+  "pile-ready": "Papyrus ready",
+  "item-paper-papyrus": "Papyrus",
+  "itemdesc-paper-papyrus": "A pressed, cross-laminated sheet of papyrus pith."
 }

@@ -19,11 +19,18 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         var pile = World.Api.World.GetBlock(new AssetLocation(PapyrusConstants.PileCode));
         var soaked = Assert.IsType<Item>(
             World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode)));
+        var finished = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.FinishedPapyrusCode)));
         var boardTag = World.Api.CollectibleTagRegistry.CreateTagSet(PapyrusConstants.PressBoardTag);
         var weightTag = World.Api.CollectibleTagRegistry.CreateTagSet(PapyrusConstants.PressWeightTag);
+        var papyrusTag = World.Api.CollectibleTagRegistry.CreateTagSet("papyrus");
+        var writingSurfaceTag = World.Api.CollectibleTagRegistry.CreateTagSet("writing-surface");
 
         Assert.IsType<BlockPapyrusPile>(pile);
         Assert.NotNull(soaked.GetCollectibleBehavior<CollectibleBehaviorPapyrusPilePlacement>(true));
+        Assert.Equal(64, finished.MaxStackSize);
+        Assert.True(finished.Tags.Overlaps(papyrusTag));
+        Assert.True(finished.Tags.Overlaps(writingSurfaceTag));
         Assert.Contains(World.Api.World.Items, item => item?.Code != null && item.Tags.Overlaps(boardTag));
         Assert.Contains(World.Api.World.Items, item => item?.Code != null && item.Tags.Overlaps(weightTag));
         return Task.CompletedTask;
@@ -74,12 +81,74 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
 
         var tree = new TreeAttribute();
         pile.ToTreeAttributes(tree);
-        Assert.Equal(1, tree.GetInt("contractVersion"));
+        Assert.Equal(2, tree.GetInt("contractVersion"));
         Assert.Equal("pressing", tree.GetString("workState"));
+        Assert.Equal(0, tree.GetDouble("dryingProgress"));
 
         player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = null;
         Assert.True(pile.Interact(player.Player));
         Assert.Equal(11, pile.GetNonEmptyContentStacks().Length);
+    }
+
+    [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
+    public async Task CompletedPilePersistsAndCollectsAllReusablePartsWithPapyrus()
+    {
+        var player = await World.JoinPlayer("PileCollector");
+        var soaked = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode)));
+        var finished = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.FinishedPapyrusCode)));
+        var board = FindTagged(PapyrusConstants.PressBoardTag);
+        var weight = FindTagged(PapyrusConstants.PressWeightTag);
+        var pileBlock = Assert.IsType<BlockPapyrusPile>(
+            World.Api.World.GetBlock(new AssetLocation(PapyrusConstants.PileCode)));
+        var pos = new BlockPos(30, 120, 30);
+
+        await player.TeleportTo(pos);
+        await World.Ticks(2);
+        var support = World.Api.World.Blocks.First(block =>
+            block?.Code != null &&
+            block.BlockId != 0 &&
+            block.CanAttachBlockAt(
+                World.Api.World.BlockAccessor,
+                pileBlock,
+                pos.DownCopy(),
+                BlockFacing.UP));
+        World.Api.World.BlockAccessor.SetBlock(support.BlockId, pos.DownCopy());
+        World.Api.World.BlockAccessor.SetBlock(pileBlock.BlockId, pos);
+        World.Api.World.BlockAccessor.SpawnBlockEntity(pileBlock.EntityClass, pos);
+        var pile = Assert.IsType<BlockEntityPapyrusPile>(
+            World.Api.World.BlockAccessor.GetBlockEntity(pos));
+        var source = new DummySlot(new ItemStack(soaked, 8));
+        pile.AddInitialStrip(source);
+        for (var i = 1; i < 8; i++)
+        {
+            player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = source.TakeOut(1);
+            pile.Interact(player.Player);
+        }
+
+        for (var i = 0; i < 2; i++)
+        {
+            player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(board);
+            pile.Interact(player.Player);
+        }
+
+        player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(weight);
+        pile.Interact(player.Player);
+        var tree = new TreeAttribute();
+        pile.ToTreeAttributes(tree);
+        tree.SetDouble("dryingProgress", 1);
+        pile.FromTreeAttributes(tree, World.Api.World);
+
+        Assert.Equal(PapyrusPileWorkState.Dry, pile.Snapshot.WorkState);
+        player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = null;
+        pile.Interact(player.Player);
+
+        Assert.Null(World.Api.World.BlockAccessor.GetBlockEntity(pos));
+        Assert.Equal(1, CountPlayerItems(player, finished));
+        Assert.Equal(2, CountPlayerItems(player, board));
+        Assert.Equal(1, CountPlayerItems(player, weight));
+        Assert.Equal(0, CountPlayerItems(player, soaked));
     }
 
     [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
