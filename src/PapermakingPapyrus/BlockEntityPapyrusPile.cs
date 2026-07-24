@@ -10,6 +10,7 @@ namespace PapermakingPapyrus;
 
 public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 {
+    private const double DryingSampleIntervalHours = 3;
     private readonly InventoryGeneric inventory = new(11, null, null);
     private int stripCount;
     private int boardCount;
@@ -17,6 +18,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
     private double dryingProgress;
     private double lastProcessedTotalHours = -1;
     private int visualBand;
+    private ClimateCondition? climateScratch;
 
     public override InventoryBase Inventory => inventory;
 
@@ -317,6 +319,11 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
             return;
         }
 
+        if (now - lastProcessedTotalHours < DryingSampleIntervalHours)
+        {
+            return;
+        }
+
         var next = AdvanceAcrossCalendar(dryingProgress, lastProcessedTotalHours, now);
         lastProcessedTotalHours = now;
         var nextBand = PapyrusDrying.VisualBand(next);
@@ -334,31 +341,42 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 
     private double AdvanceAcrossCalendar(double progress, double fromHours, double toHours)
     {
-        var elapsed = toHours - fromHours;
-        if (elapsed <= 0)
-        {
-            return progress;
-        }
-
-        // Historical samples preserve freeze/thaw behavior while a chunk is unloaded.
-        // Very long absences are bounded to 10,000 climate queries.
-        var step = Math.Max(1, elapsed / 10000);
-        for (var cursor = fromHours; cursor < toHours && progress < 1; cursor += step)
-        {
-            var sampleHours = Math.Min(step, toHours - cursor);
-            var sampleAt = cursor + sampleHours / 2;
-            var climate = Api.World.BlockAccessor.GetClimateAt(
-                Pos,
-                EnumGetClimateMode.ForSuppliedDate_TemperatureOnly,
-                sampleAt / Api.World.Calendar.HoursPerDay);
-            progress = PapyrusDrying.Advance(
-                progress,
-                sampleHours,
+        var calendar = Api.World.Calendar;
+        climateScratch ??= Api.World.BlockAccessor.GetClimateAt(
+            Pos,
+            EnumGetClimateMode.WorldGenValues,
+            0);
+        var sampler = new PapyrusDryingSampler(
+            Api.World.BlockAccessor,
+            Pos,
+            climateScratch,
+            calendar.HoursPerDay);
+        return CalendarProgress.Accumulate(
+            progress,
+            fromHours,
+            toHours,
+            new CalendarProgressPolicy(
                 PapermakingPapyrusModSystem.Config.DryingHours,
-                climate.Temperature <= 0);
-        }
+                DryingSampleIntervalHours,
+                calendar.DaysPerYear * calendar.HoursPerDay),
+            ref sampler);
+    }
 
-        return progress;
+    private readonly record struct PapyrusDryingSampler(
+        IBlockAccessor BlockAccessor,
+        BlockPos Pos,
+        ClimateCondition Climate,
+        float HoursPerDay) : ICalendarActivitySampler
+    {
+        public bool IsActiveAt(double totalHours)
+        {
+            BlockAccessor.GetClimateAt(
+                Pos,
+                Climate,
+                EnumGetClimateMode.ForSuppliedDate_TemperatureOnly,
+                totalHours / HoursPerDay);
+            return Climate.Temperature > 0;
+        }
     }
 
     private void CollectFinished(IPlayer player)
