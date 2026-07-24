@@ -4,7 +4,7 @@
   entityClass: "PapyrusPile",
   shape: { base: "papermakingpapyrus:block/papyruspile" },
   textures: {
-    papyrus: { base: "papermakingpapyrus:item/resource/papyrusstrips-soaked" },
+    papyrus: { base: "papermakingpapyrus:item/resource/papyrussheet-soaked" },
     board1: { base: "game:block/wood/planks/oak1" },
     board2: { base: "game:block/wood/planks/oak1" },
     stone: { base: "game:block/stone/rock/granite1" }

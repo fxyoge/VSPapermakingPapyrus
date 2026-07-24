@@ -18,7 +18,7 @@ internal sealed class PapyrusPileTextureSource : ITexPositionSource
         this.capi = capi;
         textures = new Dictionary<string, AssetLocation>
         {
-            ["papyrus"] = new(PapyrusConstants.Domain, "item/resource/papyrusstrips-soaked"),
+            ["papyrus"] = new(PapyrusConstants.Domain, "item/resource/papyrussheet-soaked"),
             ["board1"] = ResolveBoard(board1),
             ["board2"] = ResolveBoard(board2),
             ["stone"] = ResolveStone(weight)
