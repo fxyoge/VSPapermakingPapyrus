@@ -92,7 +92,14 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 
         if (changed)
         {
-            Changed();
+            if (stripCount == 0)
+            {
+                Api.World.BlockAccessor.SetBlock(0, Pos);
+            }
+            else
+            {
+                Changed();
+            }
         }
 
         return true;

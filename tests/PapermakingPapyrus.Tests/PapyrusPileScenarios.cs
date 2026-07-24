@@ -155,7 +155,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
     }
 
     [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
-    public async Task PlacementRequiresSupportAndPreCommitRemovalIsReverseOrdered()
+    public async Task PlacementRequiresSupportAndRemovingFinalStripDestroysPile()
     {
         var player = await World.JoinPlayer("PilePlacement");
         var soaked = Assert.IsType<Item>(
@@ -223,6 +223,15 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         slot.Itemstack = null;
         Assert.True(pile.Interact(player.Player));
         Assert.Equal(1, pile.Snapshot.StripCount);
+        Assert.Equal(1, CountPlayerItems(player, soaked));
+
+        var firstRemovedStrip = slot.TakeOutWhole();
+        slot.MarkDirty();
+        Assert.True(pile.Interact(player.Player));
+        Assert.Null(World.Api.World.BlockAccessor.GetBlockEntity(pilePos));
+        Assert.Equal(0, World.Api.World.BlockAccessor.GetBlock(pilePos).BlockId);
+        Assert.Same(soaked, firstRemovedStrip.Collectible);
+        Assert.Equal(1, firstRemovedStrip.StackSize);
         Assert.Equal(1, CountPlayerItems(player, soaked));
 
         var unsupportedSelection = new BlockSelection
