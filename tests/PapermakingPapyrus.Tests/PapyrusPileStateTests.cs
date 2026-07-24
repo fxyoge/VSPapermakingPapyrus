@@ -68,6 +68,8 @@ public sealed class PapyrusPileStateTests
     [Theory]
     [InlineData(0, 6, 24, false, 0.25)]
     [InlineData(0.5, 12, 24, false, 1)]
+    [InlineData(0.75, 12, 24, false, 1.25)]
+    [InlineData(1.25, 12, 24, false, 1.25)]
     [InlineData(0.5, 12, 24, true, 0.5)]
     [InlineData(0.5, -1, 24, false, 0.5)]
     public void DryingAdvanceIsNormalizedAndFreezeAware(
@@ -87,6 +89,7 @@ public sealed class PapyrusPileStateTests
     [InlineData(0.5, 2)]
     [InlineData(0.75, 3)]
     [InlineData(1, 3)]
+    [InlineData(1.25, 3)]
     public void VisualBandsAreStable(double progress, int expected)
     {
         Assert.Equal(expected, PapyrusDrying.VisualBand(progress));

@@ -76,14 +76,15 @@ public static class PapyrusDrying
 
     public static double Advance(double progress, double elapsedHours, double durationHours, bool freezing)
     {
-        progress = double.IsFinite(progress) ? Math.Clamp(progress, 0, 1) : 0;
-        if (freezing || !double.IsFinite(elapsedHours) || elapsedHours <= 0 ||
+        progress = double.IsFinite(progress) ? Math.Max(progress, 0) : 0;
+        if (progress >= 1 ||
+            freezing || !double.IsFinite(elapsedHours) || elapsedHours <= 0 ||
             !double.IsFinite(durationHours) || durationHours <= 0)
         {
             return progress;
         }
 
-        return Math.Clamp(progress + elapsedHours / durationHours, 0, 1);
+        return progress + elapsedHours / durationHours;
     }
 
     public static int VisualBand(double progress) =>

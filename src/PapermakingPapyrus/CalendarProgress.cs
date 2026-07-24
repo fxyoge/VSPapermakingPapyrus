@@ -26,7 +26,7 @@ public static class CalendarProgress
         ref TSampler sampler)
         where TSampler : struct, ICalendarActivitySampler
     {
-        progress = double.IsFinite(progress) ? Math.Clamp(progress, 0, 1) : 0;
+        progress = double.IsFinite(progress) ? Math.Max(progress, 0) : 0;
         if (progress >= 1 ||
             !double.IsFinite(fromTotalHours) ||
             !double.IsFinite(toTotalHours) ||
@@ -42,7 +42,7 @@ public static class CalendarProgress
             var interval = Math.Min(policy.SampleIntervalHours, toTotalHours - cursor);
             if (sampler.IsActiveAt(cursor + interval / 2))
             {
-                progress = Math.Min(1, progress + interval / policy.RequiredActiveHours);
+                progress += interval / policy.RequiredActiveHours;
             }
 
             cursor += interval;

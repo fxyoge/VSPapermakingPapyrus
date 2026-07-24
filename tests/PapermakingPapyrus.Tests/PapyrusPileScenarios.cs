@@ -13,6 +13,8 @@ namespace PapermakingPapyrus.Tests;
 
 public sealed class PapyrusPileScenarios : AtlasScenarioBase
 {
+    private const double ProgressTolerance = 0.002;
+
     [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
     public Task PileContentAndOptInMaterialsAreRegistered()
     {
@@ -243,6 +245,186 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
 
         Assert.Null(World.Api.World.BlockAccessor.GetBlockEntity(unsupportedSelection.Position.UpCopy()));
     }
+
+    [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
+    public async Task DryingSurvivesRepeatedLiveAndUnloadedChunkTransitions()
+    {
+        var player = await World.JoinPlayer("DryingCycles");
+        var pos = new BlockPos(512, 120, 512);
+        await PrepareWarmFrozenClock();
+        var pile = await BuildWeightedPile(player, pos);
+
+        await AddHoursAndWaitForProgress(1, pos, 1d / 24);
+        var firstLoadedInstance = pile;
+
+        await UnloadPileChunk(player, pos, 2048);
+        await AddHours(6);
+        pile = await ReloadPileChunk(player, pos, 7d / 24);
+        Assert.NotSame(firstLoadedInstance, pile);
+
+        await AddHoursAndWaitForProgress(1, pos, 8d / 24);
+        var secondLoadedInstance = pile;
+
+        await UnloadPileChunk(player, pos, -2048);
+        await AddHours(7);
+        pile = await ReloadPileChunk(player, pos, 15d / 24);
+        Assert.NotSame(secondLoadedInstance, pile);
+
+        for (var hour = 16; hour <= 24; hour++)
+        {
+            await AddHoursAndWaitForProgress(1, pos, hour / 24d);
+        }
+        Assert.False(World.BlockEntityAt<BlockEntityPapyrusPile>(pos)!.IsDry);
+
+        await AddHoursAndWaitForProgress(1, pos, 25d / 24);
+        Assert.True(World.BlockEntityAt<BlockEntityPapyrusPile>(pos)!.IsDry);
+
+        await UnloadPileChunk(player, pos, 2048);
+        pile = await ReloadPileChunk(player, pos, 25d / 24);
+        Assert.True(pile.IsDry);
+    }
+
+    [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
+    public async Task SubHourElapsedTimeProcessesAcrossUnloadedAndLoadedPhases()
+    {
+        var player = await World.JoinPlayer("DryingBoundary");
+        var pos = new BlockPos(768, 120, 768);
+        await PrepareWarmFrozenClock();
+        await BuildWeightedPile(player, pos);
+
+        await UnloadPileChunk(player, pos, 2048);
+        await AddHours(0.5);
+        var pile = await ReloadPileChunk(player, pos, 0.5 / 24);
+        AssertProgress(0.5 / 24, pile.DryingProgress);
+
+        await AddHoursAndWaitForProgress(0.49, pos, 0.99 / 24);
+        await AddHoursAndWaitForProgress(0.01, pos, 1d / 24);
+    }
+
+    [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
+    public async Task ReloadingWithoutElapsedTimeNeverDuplicatesDryingProgress()
+    {
+        var player = await World.JoinPlayer("DryingNoDupes");
+        var pos = new BlockPos(1024, 120, 1024);
+        await PrepareWarmFrozenClock();
+        await BuildWeightedPile(player, pos);
+        await AddHoursAndWaitForProgress(1, pos, 1d / 24);
+
+        foreach (var distance in new[] { 2048, -2048, 3072 })
+        {
+            await UnloadPileChunk(player, pos, distance);
+            var pile = await ReloadPileChunk(player, pos, 1d / 24);
+            AssertProgress(1d / 24, pile.DryingProgress);
+        }
+    }
+
+    private async Task PrepareWarmFrozenClock()
+    {
+        Assert.True((await World.ExecuteCommand("/time setmonth jun")).Ok);
+        Assert.True((await World.ExecuteCommand("/time set day")).Ok);
+        Assert.True((await World.ExecuteCommand("/time speed 0")).Ok);
+    }
+
+    private async Task<BlockEntityPapyrusPile> BuildWeightedPile(ITestPlayer player, BlockPos pos)
+    {
+        await player.TeleportTo(pos);
+        await World.Ticks(2);
+
+        var soaked = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode)));
+        var board = FindTagged(PapyrusConstants.PressBoardTag);
+        var weight = FindTagged(PapyrusConstants.PressWeightTag);
+        var pileBlock = Assert.IsType<BlockPapyrusPile>(
+            World.Api.World.GetBlock(new AssetLocation(PapyrusConstants.PileCode)));
+        World.Api.World.BlockAccessor.SetBlock(pileBlock.BlockId, pos);
+        World.Api.World.BlockAccessor.SpawnBlockEntity(pileBlock.EntityClass, pos);
+        var pile = Assert.IsType<BlockEntityPapyrusPile>(
+            World.Api.World.BlockAccessor.GetBlockEntity(pos));
+        var source = new DummySlot(new ItemStack(soaked, 8));
+        pile.AddInitialStrip(source);
+        for (var i = 1; i < 8; i++)
+        {
+            player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = source.TakeOut(1);
+            Assert.True(pile.Interact(player.Player));
+        }
+
+        for (var i = 0; i < 2; i++)
+        {
+            player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(board);
+            Assert.True(pile.Interact(player.Player));
+        }
+
+        player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(weight);
+        Assert.True(pile.Interact(player.Player));
+        Assert.Equal(PapyrusPileWorkState.Pressing, pile.Snapshot.WorkState);
+        return pile;
+    }
+
+    private async Task AddHours(double hours)
+    {
+        var before = World.Calendar.TotalHours;
+        var result = await World.ExecuteCommand($"/time add {hours:R} hours");
+        Assert.True(result.Ok, result.Message);
+        Assert.Equal(hours, World.Calendar.TotalHours - before, 6);
+    }
+
+    private async Task AddHoursAndWaitForProgress(
+        double hours,
+        BlockPos pos,
+        double expectedProgress)
+    {
+        await AddHours(hours);
+        if (expectedProgress > 0)
+        {
+            await World.Until(
+                () => World.BlockEntityAt<BlockEntityPapyrusPile>(pos)?.DryingProgress >=
+                    expectedProgress - ProgressTolerance,
+                200);
+        }
+        else
+        {
+            await World.Ticks(50);
+        }
+
+        AssertProgress(
+            expectedProgress,
+            Assert.IsType<BlockEntityPapyrusPile>(
+                World.Api.World.BlockAccessor.GetBlockEntity(pos)).DryingProgress);
+    }
+
+    private async Task UnloadPileChunk(ITestPlayer player, BlockPos pos, int distance)
+    {
+        var save = await World.ExecuteCommand("/autosavenow");
+        Assert.True(save.Ok, save.Message);
+        var destination = new BlockPos(pos.X + distance, pos.Y, pos.Z + distance);
+        await player.TeleportTo(destination);
+        await World.Until(
+            () => World.Api.World.BlockAccessor.GetChunkAtBlockPos(pos) == null,
+            600);
+        Assert.Null(World.Api.World.BlockAccessor.GetBlockEntity(pos));
+        // Chunk serialization runs on the server's chunk thread. Atlas can pump several
+        // game ticks before that thread publishes the dirty chunk to the database.
+        await Task.Delay(100);
+        await World.Ticks(1);
+    }
+
+    private async Task<BlockEntityPapyrusPile> ReloadPileChunk(
+        ITestPlayer player,
+        BlockPos pos,
+        double expectedProgress)
+    {
+        await player.TeleportTo(pos);
+        await World.Until(
+            () => World.BlockEntityAt<BlockEntityPapyrusPile>(pos) != null,
+            600);
+        var pile = Assert.IsType<BlockEntityPapyrusPile>(
+            World.Api.World.BlockAccessor.GetBlockEntity(pos));
+        AssertProgress(expectedProgress, pile.DryingProgress);
+        return pile;
+    }
+
+    private static void AssertProgress(double expected, double actual) =>
+        Assert.InRange(actual, expected - ProgressTolerance, expected + ProgressTolerance);
 
     private Item FindTagged(string tag)
     {

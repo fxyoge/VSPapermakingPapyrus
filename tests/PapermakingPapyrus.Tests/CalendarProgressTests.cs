@@ -65,6 +65,31 @@ public sealed class CalendarProgressTests
     }
 
     [Fact]
+    public void ProgressMayOvershootAndThenStopsAccumulating()
+    {
+        var sampler = new RecordingSampler(_ => true);
+        var progress = CalendarProgress.Accumulate(
+            23.5 / 24,
+            0,
+            6,
+            Policy,
+            ref sampler);
+
+        Assert.Equal(26.5 / 24, progress, 8);
+        Assert.Single(sampler.Samples);
+
+        var completedProgress = CalendarProgress.Accumulate(
+            progress,
+            6,
+            12,
+            Policy,
+            ref sampler);
+
+        Assert.Equal(progress, completedProgress);
+        Assert.Single(sampler.Samples);
+    }
+
+    [Fact]
     public void CatchUpIsCappedToTheMostRecentPolicyWindow()
     {
         var policy = new CalendarProgressPolicy(10000, 3, 12);
@@ -83,7 +108,7 @@ public sealed class CalendarProgressTests
     [Theory]
     [InlineData(double.NaN, 0)]
     [InlineData(-1, 0)]
-    [InlineData(2, 1)]
+    [InlineData(2, 2)]
     public void ProgressIsNormalized(double initial, double expected)
     {
         var sampler = new RecordingSampler(_ => true);

@@ -10,7 +10,7 @@ namespace PapermakingPapyrus;
 
 public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 {
-    private const double DryingSampleIntervalHours = 3;
+    private const double DryingCatchUpSampleIntervalHours = 3;
     private readonly InventoryGeneric inventory = new(11, null, null);
     private int stripCount;
     private int boardCount;
@@ -117,7 +117,8 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
     {
         base.FromTreeAttributes(tree, worldForResolving);
         Orientation = tree.GetFloat("orientation");
-        dryingProgress = Math.Clamp(tree.GetDouble("dryingProgress"), 0, 1);
+        var storedProgress = tree.GetDouble("dryingProgress");
+        dryingProgress = double.IsFinite(storedProgress) ? Math.Max(storedProgress, 0) : 0;
         lastProcessedTotalHours = tree.GetDouble("lastProcessedTotalHours", -1);
         visualBand = PapyrusDrying.VisualBand(dryingProgress);
         RecountAndRepair();
@@ -316,11 +317,6 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
             return;
         }
 
-        if (now - lastProcessedTotalHours < DryingSampleIntervalHours)
-        {
-            return;
-        }
-
         var next = AdvanceAcrossCalendar(dryingProgress, lastProcessedTotalHours, now);
         lastProcessedTotalHours = now;
         var nextBand = PapyrusDrying.VisualBand(next);
@@ -354,7 +350,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
             toHours,
             new CalendarProgressPolicy(
                 PapermakingPapyrusModSystem.Config.DryingHours,
-                DryingSampleIntervalHours,
+                DryingCatchUpSampleIntervalHours,
                 calendar.DaysPerYear * calendar.HoursPerDay),
             ref sampler);
     }
