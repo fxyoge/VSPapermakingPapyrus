@@ -5,8 +5,9 @@
   shape: { base: "papermakingpapyrus:block/papyruspile" },
   textures: {
     papyrus: { base: "papermakingpapyrus:item/resource/papyrusstrips-soaked" },
-    board: { base: "game:block/wood/planks/oak" },
-    stone: { base: "game:block/stone/rock/granite" }
+    board1: { base: "game:block/wood/planks/oak1" },
+    board2: { base: "game:block/wood/planks/oak1" },
+    stone: { base: "game:block/stone/rock/granite1" }
   },
   blockmaterial: "Plant",
   replaceable: 0,

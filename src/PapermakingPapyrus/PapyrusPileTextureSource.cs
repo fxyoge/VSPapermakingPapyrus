@@ -36,22 +36,22 @@ internal sealed class PapyrusPileTextureSource : ITexPositionSource
     {
         if (stack?.Collectible?.Code == null)
         {
-            return new AssetLocation("game:block/wood/planks/oak");
+            return new AssetLocation("game:block/wood/planks/oak1");
         }
 
         var wood = stack.Collectible.Code.Path.Split('-').Last();
-        return new AssetLocation(stack.Collectible.Code.Domain, $"block/wood/planks/{wood}");
+        return new AssetLocation(stack.Collectible.Code.Domain, $"block/wood/planks/{wood}1");
     }
 
     private AssetLocation ResolveStone(ItemStack? stack)
     {
         if (stack?.Collectible?.Code == null)
         {
-            return new AssetLocation("game:block/stone/rock/granite");
+            return new AssetLocation("game:block/stone/rock/granite1");
         }
 
         var rock = stack.Collectible.Code.Path.Split('-').Last();
-        return new AssetLocation(stack.Collectible.Code.Domain, $"block/stone/rock/{rock}");
+        return new AssetLocation(stack.Collectible.Code.Domain, $"block/stone/rock/{rock}1");
     }
 
     private TextureAtlasPosition GetOrInsert(AssetLocation texture)
