@@ -378,16 +378,16 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 
     private void CollectFinished(IPlayer player)
     {
-        ResolveFinishedSheet();
-        foreach (var slot in inventory.Where(slot => !slot.Empty))
+        if (ResolveFinishedSheet())
         {
-            var stack = slot.TakeOutWhole();
-            if (stack != null && !player.InventoryManager.TryGiveItemstack(stack, true))
+            var parchment = inventory[0].TakeOutWhole();
+            if (parchment != null && !player.InventoryManager.TryGiveItemstack(parchment, true))
             {
-                Api.World.SpawnItemEntity(stack, Pos.ToVec3d().Add(0.5, 0.4, 0.5));
+                Api.World.SpawnItemEntity(parchment, Pos.ToVec3d().Add(0.5, 0.4, 0.5));
             }
         }
 
+        inventory.DropAll(Pos.ToVec3d().Add(0.5, 0.2, 0.5));
         Api.World.BlockAccessor.SetBlock(0, Pos);
     }
 

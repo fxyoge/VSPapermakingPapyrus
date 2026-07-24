@@ -87,7 +87,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
     }
 
     [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
-    public async Task CompletedPilePersistsAndCollectsAllReusablePartsWithParchment()
+    public async Task CompletedPileGivesParchmentAndDropsReusablePressParts()
     {
         var player = await World.JoinPlayer("PileCollector");
         var soaked = Assert.IsType<Item>(
@@ -140,11 +140,16 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = null;
         pile.Interact(player.Player);
 
+        var droppedBoards = CountDroppedItems(pos, board);
+        var droppedWeights = CountDroppedItems(pos, weight);
+
         Assert.Null(World.Api.World.BlockAccessor.GetBlockEntity(pos));
         Assert.Equal(1, CountPlayerItems(player, parchment));
-        Assert.Equal(2, CountPlayerItems(player, board));
-        Assert.Equal(1, CountPlayerItems(player, weight));
+        Assert.Equal(0, CountPlayerItems(player, board));
+        Assert.Equal(0, CountPlayerItems(player, weight));
         Assert.Equal(0, CountPlayerItems(player, soaked));
+        Assert.Equal(2, droppedBoards);
+        Assert.Equal(1, droppedWeights);
     }
 
     [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
@@ -245,6 +250,17 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         return Assert.IsAssignableFrom<Item>(
             World.Api.World.Items.First(item => item?.Code != null && item.Tags.Overlaps(tagSet)));
     }
+
+    private int CountDroppedItems(BlockPos pos, CollectibleObject collectible) =>
+        World.Api.World
+            .GetEntitiesAround(
+                pos.ToVec3d().Add(0.5, 0.5, 0.5),
+                3,
+                3,
+                entity => entity is EntityItem item &&
+                    item.Itemstack?.Collectible == collectible)
+            .OfType<EntityItem>()
+            .Sum(item => item.Itemstack.StackSize);
 
     private static int CountPlayerItems(ITestPlayer player, CollectibleObject collectible) =>
         player.Player.InventoryManager.Inventories
