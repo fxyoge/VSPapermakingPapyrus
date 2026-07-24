@@ -17,6 +17,11 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
         api.RegisterCollectibleBehaviorClass(
             "PapyrusTopCutting",
             typeof(CollectibleBehaviorPapyrusTopCutting));
+        api.RegisterCollectibleBehaviorClass(
+            "PapyrusPilePlacement",
+            typeof(CollectibleBehaviorPapyrusPilePlacement));
+        api.RegisterBlockClass("PapyrusPile", typeof(BlockPapyrusPile));
+        api.RegisterBlockEntityClass("PapyrusPile", typeof(BlockEntityPapyrusPile));
     }
 
     public override void AssetsLoaded(ICoreAPI api)
@@ -42,6 +47,16 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
             behavior.Initialize(new JsonObject(new JObject()));
             behavior.OnLoaded(api);
             papyrusTops.CollectibleBehaviors = [.. papyrusTops.CollectibleBehaviors, behavior];
+        }
+
+        var soakedStrips = api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode));
+        if (soakedStrips != null &&
+            soakedStrips.GetCollectibleBehavior<CollectibleBehaviorPapyrusPilePlacement>(true) == null)
+        {
+            var behavior = new CollectibleBehaviorPapyrusPilePlacement(soakedStrips);
+            behavior.Initialize(new JsonObject(new JObject()));
+            behavior.OnLoaded(api);
+            soakedStrips.CollectibleBehaviors = [.. soakedStrips.CollectibleBehaviors, behavior];
         }
 
         var knifeTag = api.CollectibleTagRegistry.CreateTagSet(PapyrusConstants.KnifeTag);

@@ -1,0 +1,24 @@
+{
+  code: "papyruspile",
+  class: "PapyrusPile",
+  entityClass: "PapyrusPile",
+  shape: { base: "papermakingpapyrus:block/papyruspile" },
+  textures: {
+    papyrus: { base: "papermakingpapyrus:item/resource/papyrusstrips-soaked" },
+    board: { base: "game:block/wood/planks/oak" },
+    stone: { base: "game:block/stone/rock/granite" }
+  },
+  blockmaterial: "Plant",
+  replaceable: 0,
+  resistance: 0.4,
+  sideopaque: { all: false },
+  sidesolid: { all: false },
+  lightAbsorption: 0,
+  creativeinventory: {},
+  drops: [],
+  sounds: {
+    place: "game:block/plant",
+    hit: "game:block/plant",
+    break: "game:block/plant"
+  }
+}

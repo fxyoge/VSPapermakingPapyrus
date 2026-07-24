@@ -1,0 +1,18 @@
+{
+  textureWidth: 32,
+  textureHeight: 32,
+  textures: { papyrus: "papyrus", board1: "board1", board2: "board2", stone: "stone" },
+  elements: [
+    { name: "strip1", from: [1,0,2], to: [4.2,0.35,14], faces: { up:{texture:"#papyrus"},down:{texture:"#papyrus"},north:{texture:"#papyrus"},east:{texture:"#papyrus"},south:{texture:"#papyrus"},west:{texture:"#papyrus"} } },
+    { name: "strip2", from: [4.5,0,2], to: [7.7,0.38,14], faces: { up:{texture:"#papyrus"},down:{texture:"#papyrus"},north:{texture:"#papyrus"},east:{texture:"#papyrus"},south:{texture:"#papyrus"},west:{texture:"#papyrus"} } },
+    { name: "strip3", from: [8,0,2], to: [11.2,0.36,14], faces: { up:{texture:"#papyrus"},down:{texture:"#papyrus"},north:{texture:"#papyrus"},east:{texture:"#papyrus"},south:{texture:"#papyrus"},west:{texture:"#papyrus"} } },
+    { name: "strip4", from: [11.5,0,2], to: [14.7,0.39,14], faces: { up:{texture:"#papyrus"},down:{texture:"#papyrus"},north:{texture:"#papyrus"},east:{texture:"#papyrus"},south:{texture:"#papyrus"},west:{texture:"#papyrus"} } },
+    { name: "strip5", from: [2,0.4,1], to: [14,0.75,4.2], faces: { up:{texture:"#papyrus"},down:{texture:"#papyrus"},north:{texture:"#papyrus"},east:{texture:"#papyrus"},south:{texture:"#papyrus"},west:{texture:"#papyrus"} } },
+    { name: "strip6", from: [2,0.4,4.5], to: [14,0.78,7.7], faces: { up:{texture:"#papyrus"},down:{texture:"#papyrus"},north:{texture:"#papyrus"},east:{texture:"#papyrus"},south:{texture:"#papyrus"},west:{texture:"#papyrus"} } },
+    { name: "strip7", from: [2,0.4,8], to: [14,0.76,11.2], faces: { up:{texture:"#papyrus"},down:{texture:"#papyrus"},north:{texture:"#papyrus"},east:{texture:"#papyrus"},south:{texture:"#papyrus"},west:{texture:"#papyrus"} } },
+    { name: "strip8", from: [2,0.4,11.5], to: [14,0.79,14.7], faces: { up:{texture:"#papyrus"},down:{texture:"#papyrus"},north:{texture:"#papyrus"},east:{texture:"#papyrus"},south:{texture:"#papyrus"},west:{texture:"#papyrus"} } },
+    { name: "board1", from: [1.5,0.8,2], to: [7.4,2.6,14], rotationOrigin: [4.5,1,8], rotationY: -3, faces: { up:{texture:"#board1"},down:{texture:"#board1"},north:{texture:"#board1"},east:{texture:"#board1"},south:{texture:"#board1"},west:{texture:"#board1"} } },
+    { name: "board2", from: [8.6,0.8,2], to: [14.5,2.6,14], rotationOrigin: [11.5,1,8], rotationY: 3, faces: { up:{texture:"#board2"},down:{texture:"#board2"},north:{texture:"#board2"},east:{texture:"#board2"},south:{texture:"#board2"},west:{texture:"#board2"} } },
+    { name: "weight", from: [5,2.5,4.5], to: [11,7,11.5], faces: { up:{texture:"#stone"},down:{texture:"#stone"},north:{texture:"#stone"},east:{texture:"#stone"},south:{texture:"#stone"},west:{texture:"#stone"} } }
+  ]
+}

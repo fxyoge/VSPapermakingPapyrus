@@ -3,6 +3,11 @@
   "item-papyrusstrips-soaked": "Soaked papyrus strips",
   "itemdesc-papyrusstrips-dry": "Hand-cut strips of papyrus pith. Condition a complete sheet batch in a sealed water barrel.",
   "itemdesc-papyrusstrips-soaked": "Conditioned papyrus pith, ready to be laid in crossed layers.",
-  "heldhelp-cut-papyrus": "Cut papyrus pith"
+  "heldhelp-cut-papyrus": "Cut papyrus pith",
+  "block-papyruspile": "Papyrus pile",
+  "pile-layer": "Papyrus layer: {0}/8",
+  "pile-needs-two-boards": "Needs two boards",
+  "pile-needs-one-board": "Needs one board",
+  "pile-needs-weight": "Needs stone weight",
+  "pile-pressing": "Pressing and drying"
 }
-

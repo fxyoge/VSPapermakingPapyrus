@@ -1,0 +1,14 @@
+[
+  {
+    file: "game:itemtypes/resource/plank.json",
+    op: "addmerge",
+    path: "/tags",
+    value: ["papyrus-press-board"]
+  },
+  {
+    file: "game:itemtypes/resource/stone.json",
+    op: "addmerge",
+    path: "/tags",
+    value: ["papyrus-press-weight"]
+  }
+]
