@@ -1,16 +1,15 @@
 {
   "item-papyrusstrips-dry": "Dry papyrus strips",
   "item-papyrusstrips-soaked": "Soaked papyrus strips",
-  "itemdesc-papyrusstrips-dry": "Hand-cut strips of papyrus pith. Condition a complete sheet batch in a sealed water barrel.",
-  "itemdesc-papyrusstrips-soaked": "Conditioned papyrus pith, ready to be laid in crossed layers.",
+  "itemdesc-papyrusstrips-dry": "Papyrus pith cut into strips. Soak in a sealed water barrel.",
+  "itemdesc-papyrusstrips-soaked": "Soaked papyrus strips, ready for layering.",
   "heldhelp-cut-papyrus": "Cut papyrus pith",
   "block-papyruspile": "Papyrus pile",
-  "pile-layer": "Papyrus layer: {0}/8",
-  "pile-needs-two-boards": "Needs two boards",
-  "pile-needs-one-board": "Needs one board",
-  "pile-needs-weight": "Needs stone weight",
-  "pile-pressing": "Pressing and drying: {0}:{1:00} remaining",
+  "pile-strips": "{0}/8 papyrus strips",
+  "pile-planks": "{0}/2 planks",
+  "pile-weight": "{0}/1 weight",
+  "pile-drying": "Drying: {0} / {1}",
   "pile-ready": "Papyrus ready",
   "item-paper-papyrus": "Papyrus",
-  "itemdesc-paper-papyrus": "A pressed, cross-laminated sheet of papyrus pith."
+  "itemdesc-paper-papyrus": "A pressed sheet of layered papyrus pith."
 }

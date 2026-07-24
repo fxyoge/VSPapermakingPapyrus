@@ -138,39 +138,36 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 
     public override void GetBlockInfo(IPlayer forPlayer, StringBuilder dsc)
     {
-        if (stripCount < 8)
-        {
-            dsc.AppendLine(Lang.Get("papermakingpapyrus:pile-layer", stripCount));
-        }
-        else if (boardCount < 2)
-        {
-            dsc.AppendLine(Lang.Get(
-                boardCount == 0
-                    ? "papermakingpapyrus:pile-needs-two-boards"
-                    : "papermakingpapyrus:pile-needs-one-board"));
-        }
-        else if (IsDry)
+        if (IsDry)
         {
             dsc.AppendLine(Lang.Get("papermakingpapyrus:pile-ready"));
         }
+        else if (hasWeight)
+        {
+            var dryingHours = PapermakingPapyrusModSystem.Config.DryingHours;
+            dsc.AppendLine(Lang.Get(
+                "papermakingpapyrus:pile-drying",
+                PrettyHours(dryingProgress * dryingHours),
+                PrettyHours(dryingHours)));
+        }
         else
         {
-            if (hasWeight)
-            {
-                var remaining = PapyrusDrying.RemainingHours(
-                    dryingProgress,
-                    PapermakingPapyrusModSystem.Config.DryingHours);
-                var remainingMinutes = (int)Math.Ceiling(remaining * 60);
-                dsc.AppendLine(Lang.Get(
-                    "papermakingpapyrus:pile-pressing",
-                    remainingMinutes / 60,
-                    remainingMinutes % 60));
-            }
-            else
-            {
-                dsc.AppendLine(Lang.Get("papermakingpapyrus:pile-needs-weight"));
-            }
+            dsc.AppendLine(Lang.Get("papermakingpapyrus:pile-strips", stripCount));
+            dsc.AppendLine(Lang.Get("papermakingpapyrus:pile-planks", boardCount));
+            dsc.AppendLine(Lang.Get("papermakingpapyrus:pile-weight", 0));
         }
+    }
+
+    private string PrettyHours(double hours)
+    {
+        var hoursPerDay = Api.World.Calendar.HoursPerDay;
+        if (hours >= hoursPerDay)
+        {
+            var days = Math.Round(hours / hoursPerDay, 1);
+            return Lang.Get("{0} days", days);
+        }
+
+        return Lang.Get("{0} hours", Math.Floor(hours));
     }
 
     public override bool OnTesselation(ITerrainMeshPool mesher, ITesselatorAPI tesselator)
