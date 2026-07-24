@@ -29,10 +29,11 @@ public sealed class CollectibleBehaviorPapyrusPilePlacement(CollectibleObject co
 
         var placePos = blockSel.Position.UpCopy();
         if (byEntity is not EntityPlayer entityPlayer ||
-            !byEntity.World.Claims.TryAccess(
-                entityPlayer.Player,
-                placePos,
-                EnumBlockAccessFlags.BuildOrBreak) ||
+            (!entityPlayer.Player.HasPrivilege("buildblockseverywhere") &&
+             !byEntity.World.Claims.TryAccess(
+                 entityPlayer.Player,
+                 placePos,
+                 EnumBlockAccessFlags.BuildOrBreak)) ||
             byEntity.World.BlockAccessor.GetBlock(placePos).Replaceable < 6000 ||
             !byEntity.World.BlockAccessor.GetBlock(blockSel.Position).CanAttachBlockAt(
                 byEntity.World.BlockAccessor,
@@ -59,6 +60,7 @@ public sealed class CollectibleBehaviorPapyrusPilePlacement(CollectibleObject co
         }
 
         byEntity.World.BlockAccessor.SetBlock(pileBlock.BlockId, placePos);
+        byEntity.World.BlockAccessor.SpawnBlockEntity(pileBlock.EntityClass, placePos);
         if (byEntity.World.BlockAccessor.GetBlockEntity(placePos) is not BlockEntityPapyrusPile pile)
         {
             byEntity.World.BlockAccessor.SetBlock(0, placePos);

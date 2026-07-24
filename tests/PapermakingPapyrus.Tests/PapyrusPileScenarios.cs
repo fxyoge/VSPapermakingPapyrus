@@ -6,6 +6,7 @@ using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
+using Vintagestory.API.Server;
 using Xunit;
 
 namespace PapermakingPapyrus.Tests;
@@ -40,7 +41,11 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
             World.Api.World.GetBlock(new AssetLocation(PapyrusConstants.PileCode)));
         var pos = new BlockPos(0, 120, 0);
 
+        await player.TeleportTo(pos);
+        await World.Ticks(2);
+        Assert.Equal("PapyrusPile", pileBlock.EntityClass);
         World.Api.World.BlockAccessor.SetBlock(pileBlock.BlockId, pos);
+        World.Api.World.BlockAccessor.SpawnBlockEntity(pileBlock.EntityClass, pos);
         var pile = Assert.IsType<BlockEntityPapyrusPile>(
             World.Api.World.BlockAccessor.GetBlockEntity(pos));
         var source = new DummySlot(new ItemStack(soaked, 8));
@@ -91,10 +96,20 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
             block.CanAttachBlockAt(
                 World.Api.World.BlockAccessor,
                 pileBlock,
-                new BlockPos(4, 120, 4),
+                new BlockPos(1000, 120, 1000),
                 BlockFacing.UP));
-        var supportPos = new BlockPos(4, 120, 4);
+        var supportPos = new BlockPos(1000, 120, 1000);
+        await player.TeleportTo(supportPos.UpCopy());
+        await World.Ticks(2);
+        var serverApi = Assert.IsAssignableFrom<ICoreServerAPI>(World.Api);
+        serverApi.Permissions.SetRole(
+            Assert.IsAssignableFrom<IServerPlayer>(player.Player),
+            "admin");
+        await World.Ticks(2);
         World.Api.World.BlockAccessor.SetBlock(support.BlockId, supportPos);
+        Assert.Equal(
+            support.BlockId,
+            World.Api.World.BlockAccessor.GetBlock(supportPos).BlockId);
         var slot = player.Player.InventoryManager.ActiveHotbarSlot;
         var placement = Assert.IsType<CollectibleBehaviorPapyrusPilePlacement>(
             soaked.GetCollectibleBehavior<CollectibleBehaviorPapyrusPilePlacement>(true));
@@ -105,6 +120,13 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
             Face = BlockFacing.UP,
             HitPosition = new Vec3d(0.5, 1, 0.5)
         };
+        Assert.True(player.Player.HasPrivilege("buildblockseverywhere"));
+        Assert.True(World.Api.World.BlockAccessor.GetBlock(supportPos.UpCopy()).Replaceable >= 6000);
+        Assert.True(support.CanAttachBlockAt(
+            World.Api.World.BlockAccessor,
+            pileBlock,
+            supportPos,
+            BlockFacing.UP));
         var handHandling = EnumHandHandling.NotHandled;
         var handling = EnumHandling.PassThrough;
 
@@ -133,7 +155,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
 
         var unsupportedSelection = new BlockSelection
         {
-            Position = new BlockPos(8, 120, 8),
+            Position = new BlockPos(1008, 120, 1008),
             Face = BlockFacing.UP,
             HitPosition = new Vec3d(0.5, 1, 0.5)
         };
