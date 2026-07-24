@@ -393,13 +393,13 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 
     private bool ResolveFinishedSheet()
     {
-        var paper = Api.World.GetItem(new AssetLocation(PapyrusConstants.FinishedPapyrusCode));
-        if (paper == null)
+        var parchment = Api.World.GetItem(new AssetLocation(PapyrusConstants.ParchmentCode));
+        if (parchment == null)
         {
             PapermakingPapyrusModSystem.Logger?.Error(
-                "Cannot resolve completed papyrus at {0}: collectible {1} is missing. Returning stored inputs instead.",
+                "Cannot resolve completed pile at {0}: collectible {1} is missing. Returning stored inputs instead.",
                 Pos,
-                PapyrusConstants.FinishedPapyrusCode);
+                PapyrusConstants.ParchmentCode);
             return false;
         }
 
@@ -409,7 +409,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
             inventory[i].MarkDirty();
         }
 
-        inventory[0].Itemstack = new ItemStack(paper);
+        inventory[0].Itemstack = new ItemStack(parchment);
         inventory[0].MarkDirty();
         return true;
     }

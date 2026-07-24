@@ -19,18 +19,14 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         var pile = World.Api.World.GetBlock(new AssetLocation(PapyrusConstants.PileCode));
         var soaked = Assert.IsType<Item>(
             World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode)));
-        var finished = Assert.IsType<Item>(
-            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.FinishedPapyrusCode)));
+        var parchment = Assert.IsAssignableFrom<Item>(
+            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.ParchmentCode)));
         var boardTag = World.Api.CollectibleTagRegistry.CreateTagSet(PapyrusConstants.PressBoardTag);
         var weightTag = World.Api.CollectibleTagRegistry.CreateTagSet(PapyrusConstants.PressWeightTag);
-        var papyrusTag = World.Api.CollectibleTagRegistry.CreateTagSet("papyrus");
-        var writingSurfaceTag = World.Api.CollectibleTagRegistry.CreateTagSet("writing-surface");
 
         Assert.IsType<BlockPapyrusPile>(pile);
         Assert.NotNull(soaked.GetCollectibleBehavior<CollectibleBehaviorPapyrusPilePlacement>(true));
-        Assert.Equal(64, finished.MaxStackSize);
-        Assert.True(finished.Tags.Overlaps(papyrusTag));
-        Assert.True(finished.Tags.Overlaps(writingSurfaceTag));
+        Assert.Equal("game:paper-parchment", parchment.Code.ToString());
         Assert.Contains(World.Api.World.Items, item => item?.Code != null && item.Tags.Overlaps(boardTag));
         Assert.Contains(World.Api.World.Items, item => item?.Code != null && item.Tags.Overlaps(weightTag));
         return Task.CompletedTask;
@@ -91,13 +87,13 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
     }
 
     [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
-    public async Task CompletedPilePersistsAndCollectsAllReusablePartsWithPapyrus()
+    public async Task CompletedPilePersistsAndCollectsAllReusablePartsWithParchment()
     {
         var player = await World.JoinPlayer("PileCollector");
         var soaked = Assert.IsType<Item>(
             World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode)));
-        var finished = Assert.IsType<Item>(
-            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.FinishedPapyrusCode)));
+        var parchment = Assert.IsAssignableFrom<Item>(
+            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.ParchmentCode)));
         var board = FindTagged(PapyrusConstants.PressBoardTag);
         var weight = FindTagged(PapyrusConstants.PressWeightTag);
         var pileBlock = Assert.IsType<BlockPapyrusPile>(
@@ -145,7 +141,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         pile.Interact(player.Player);
 
         Assert.Null(World.Api.World.BlockAccessor.GetBlockEntity(pos));
-        Assert.Equal(1, CountPlayerItems(player, finished));
+        Assert.Equal(1, CountPlayerItems(player, parchment));
         Assert.Equal(2, CountPlayerItems(player, board));
         Assert.Equal(1, CountPlayerItems(player, weight));
         Assert.Equal(0, CountPlayerItems(player, soaked));

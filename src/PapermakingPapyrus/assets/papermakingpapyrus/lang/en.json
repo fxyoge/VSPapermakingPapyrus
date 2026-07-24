@@ -9,7 +9,5 @@
   "pile-planks": "{0}/2 planks",
   "pile-weight": "{0}/1 weight",
   "pile-drying": "Drying: {0} / {1}",
-  "pile-ready": "Papyrus ready",
-  "item-paper-papyrus": "Papyrus",
-  "itemdesc-paper-papyrus": "A pressed sheet of layered papyrus pith."
+  "pile-ready": "Papyrus ready"
 }
