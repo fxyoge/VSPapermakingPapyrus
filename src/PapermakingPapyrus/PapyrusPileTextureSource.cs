@@ -34,24 +34,39 @@ internal sealed class PapyrusPileTextureSource : ITexPositionSource
 
     private AssetLocation ResolveBoard(ItemStack? stack)
     {
-        if (stack?.Collectible?.Code == null)
-        {
-            return new AssetLocation("game:block/wood/planks/oak1");
-        }
-
-        var wood = stack.Collectible.Code.Path.Split('-').Last();
-        return new AssetLocation(stack.Collectible.Code.Domain, $"block/wood/planks/{wood}1");
+        return ResolveCollectibleTexture(
+            stack,
+            new AssetLocation("game:block/wood/planks/oak1"));
     }
 
     private AssetLocation ResolveStone(ItemStack? stack)
     {
-        if (stack?.Collectible?.Code == null)
+        return ResolveCollectibleTexture(
+            stack,
+            new AssetLocation("game:block/stone/rock/granite1"));
+    }
+
+    private static AssetLocation ResolveCollectibleTexture(
+        ItemStack? stack,
+        AssetLocation fallback)
+    {
+        IDictionary<string, CompositeTexture>? textures = stack?.Collectible switch
         {
-            return new AssetLocation("game:block/stone/rock/granite1");
+            Item item => item.Textures,
+            Block block => block.Textures,
+            _ => null
+        };
+        if (textures == null)
+        {
+            return fallback;
         }
 
-        var rock = stack.Collectible.Code.Path.Split('-').Last();
-        return new AssetLocation(stack.Collectible.Code.Domain, $"block/stone/rock/{rock}1");
+        if (textures.TryGetValue("all", out var texture))
+        {
+            return texture.Baked.BakedName;
+        }
+
+        return textures.Values.FirstOrDefault()?.Baked.BakedName ?? fallback;
     }
 
     private TextureAtlasPosition GetOrInsert(AssetLocation texture)

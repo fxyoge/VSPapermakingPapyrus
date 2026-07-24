@@ -136,9 +136,9 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         }
 
         var elements = Enumerable.Range(1, stripCount)
-            .Select(index => $"strip{index}")
-            .Concat(Enumerable.Range(1, boardCount).Select(index => $"board{index}"))
-            .Concat(hasWeight ? ["weight"] : [])
+            .Select(index => $"root/strip{index}")
+            .Concat(Enumerable.Range(1, boardCount).Select(index => $"root/board{index}"))
+            .Concat(hasWeight ? ["root/weight"] : [])
             .ToArray();
         tesselator.TesselateShape(
             "papyrus pile",
