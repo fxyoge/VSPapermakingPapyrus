@@ -71,5 +71,6 @@ public sealed class CollectibleBehaviorPapyrusPilePlacement(CollectibleObject co
         pile.AddInitialStrip(
             slot,
             entityPlayer.Player.WorldData.CurrentGameMode != EnumGameMode.Creative);
+        pile.PlayPlacementSound();
     }
 }

@@ -9,6 +9,8 @@ public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collO
     : CollectibleBehavior(collObj)
 {
     private const string CuttingAnimation = "squeezehoneycomb";
+    private static readonly AssetLocation CuttingSound =
+        new(PapyrusConstants.CuttingSound);
 
     private ICoreAPI? api;
     private TagSet knifeTag;
@@ -39,6 +41,7 @@ public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collO
         handHandling = EnumHandHandling.PreventDefault;
         handling = EnumHandling.PreventDefault;
         byEntity.StartAnimation(CuttingAnimation);
+        PlayCuttingSound(byEntity);
     }
 
     public override bool OnHeldInteractStep(
@@ -56,6 +59,11 @@ public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collO
         }
 
         handling = EnumHandling.PreventDefault;
+        if (byEntity.World.Rand.NextDouble() < 0.05)
+        {
+            PlayCuttingSound(byEntity);
+        }
+
         return !PapyrusCuttingRules.HasCompleted(
             secondsUsed,
             PapermakingPapyrusModSystem.Config.CuttingDurationSeconds);
@@ -102,6 +110,7 @@ public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collO
                 1,
                 PapermakingPapyrusModSystem.Config.DryStripsPerPapyrusTop));
 
+        PlayCuttingSound(byEntity);
         if (byEntity is EntityPlayer entityPlayer &&
             entityPlayer.Player.InventoryManager.TryGiveItemstack(output, true))
         {
@@ -159,5 +168,17 @@ public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collO
             knifeTagLoaded &&
             knifeSlot.Itemstack.Collectible.Tags.Overlaps(knifeTag) &&
             knifeSlot.Itemstack.Collectible.GetRemainingDurability(knifeSlot.Itemstack) > 0;
+    }
+
+    private static void PlayCuttingSound(EntityAgent byEntity)
+    {
+        var player = (byEntity as EntityPlayer)?.Player;
+        byEntity.World.PlaySoundAt(
+            CuttingSound,
+            byEntity,
+            player,
+            randomizePitch: true,
+            range: 32,
+            volume: 1);
     }
 }

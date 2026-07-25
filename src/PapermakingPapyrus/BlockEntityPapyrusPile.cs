@@ -70,6 +70,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         if (IsDry && stack == null)
         {
             CollectFinished(player);
+            PlaySound(PapyrusConstants.CollectSound);
             return true;
         }
 
@@ -92,6 +93,14 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 
         if (changed)
         {
+            PlaySound(action switch
+            {
+                PapyrusPileAction.AddBoard or PapyrusPileAction.RemoveBoard =>
+                    PapyrusConstants.BoardSound,
+                PapyrusPileAction.AddWeight => PapyrusConstants.WeightSound,
+                _ => PapyrusConstants.StripSound
+            });
+
             if (stripCount == 0)
             {
                 Api.World.BlockAccessor.SetBlock(0, Pos);
@@ -478,4 +487,17 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         MarkDirty(true);
         Api.World.BlockAccessor.MarkBlockDirty(Pos);
     }
+
+    public void PlayPlacementSound() =>
+        PlaySound(PapyrusConstants.StripSound);
+
+    private void PlaySound(string code) =>
+        Api.World.PlaySoundAt(
+            new AssetLocation(code),
+            Pos,
+            0,
+            null,
+            randomizePitch: true,
+            range: 32,
+            volume: 1);
 }

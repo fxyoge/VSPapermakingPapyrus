@@ -13,4 +13,9 @@ public static class PapyrusConstants
     public const string SoakedStripTag = "soaked-papyrus-strip";
     public const string PressBoardTag = "papyrus-press-board";
     public const string PressWeightTag = "papyrus-press-weight";
+    public const string CuttingSound = "game:sounds/tool/groundcrafting/hidecut*";
+    public const string StripSound = "game:sounds/block/plant";
+    public const string BoardSound = "game:sounds/block/planks";
+    public const string WeightSound = "game:sounds/block/loosestone*";
+    public const string CollectSound = "game:sounds/player/collect*";
 }
