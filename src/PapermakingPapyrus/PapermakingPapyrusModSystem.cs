@@ -1,11 +1,16 @@
+using System.Collections.Concurrent;
 using Newtonsoft.Json.Linq;
 using Vintagestory.API.Common;
 using Vintagestory.API.Datastructures;
+using Vintagestory.API.Util;
 
 namespace PapermakingPapyrus;
 
 public sealed class PapermakingPapyrusModSystem : ModSystem
 {
+    internal const string MissingPileTextureWarningsCacheKey =
+        PapyrusConstants.Domain + ":missing-pile-texture-warnings";
+
     internal static PapermakingPapyrusConfig Config { get; private set; } = new();
 
     internal static ILogger? Logger { get; private set; }
@@ -13,6 +18,9 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
     public override void Start(ICoreAPI api)
     {
         Logger = Mod.Logger;
+        ObjectCacheUtil.Delete(api, MissingPileTextureWarningsCacheKey);
+        api.ObjectCache[MissingPileTextureWarningsCacheKey] =
+            new ConcurrentDictionary<AssetLocation, byte>();
 
         api.RegisterCollectibleBehaviorClass(
             "PapyrusTopCutting",

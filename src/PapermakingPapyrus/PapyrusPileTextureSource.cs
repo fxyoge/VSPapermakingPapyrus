@@ -1,12 +1,15 @@
+using System.Collections.Concurrent;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.MathTools;
+using Vintagestory.API.Util;
 
 namespace PapermakingPapyrus;
 
 internal sealed class PapyrusPileTextureSource : ITexPositionSource
 {
     private readonly ICoreClientAPI capi;
+    private readonly ConcurrentDictionary<AssetLocation, byte> missingTextureWarnings;
     private readonly Dictionary<string, AssetLocation> textures;
 
     public PapyrusPileTextureSource(
@@ -17,6 +20,12 @@ internal sealed class PapyrusPileTextureSource : ITexPositionSource
         int visualBand)
     {
         this.capi = capi;
+        missingTextureWarnings =
+            ObjectCacheUtil.TryGet<ConcurrentDictionary<AssetLocation, byte>>(
+                capi,
+                PapermakingPapyrusModSystem.MissingPileTextureWarningsCacheKey)
+            ?? throw new InvalidOperationException(
+                "Missing pile texture warning cache was not initialized.");
         textures = new Dictionary<string, AssetLocation>
         {
             ["papyrus"] = new(PapyrusConstants.Domain, visualBand switch
@@ -97,9 +106,12 @@ internal sealed class PapyrusPileTextureSource : ITexPositionSource
             return position!;
         }
 
-        PapermakingPapyrusModSystem.Logger?.Warning(
-            "Pile texture {0} is unavailable; using the documented visual fallback.",
-            texture);
+        if (missingTextureWarnings.TryAdd(texture.PermanentClone(), 0))
+        {
+            PapermakingPapyrusModSystem.Logger?.Warning(
+                "Pile texture {0} is unavailable; using the documented visual fallback.",
+                texture);
+        }
         return atlas.UnknownTexturePosition!;
     }
 }
