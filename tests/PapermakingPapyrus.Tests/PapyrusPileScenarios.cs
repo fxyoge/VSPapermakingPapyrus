@@ -159,48 +159,15 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
     [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
     public async Task PlacementRequiresSupportAndRemovingFinalStripDestroysPile()
     {
-        var player = await World.JoinPlayer("PilePlacement");
+        var player = await PrepareAdminPlayer("PilePlacement");
         var soaked = Assert.IsType<Item>(
             World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode)));
-        var pileBlock = Assert.IsType<BlockPapyrusPile>(
-            World.Api.World.GetBlock(new AssetLocation(PapyrusConstants.PileCode)));
-        var support = World.Api.World.Blocks.First(block =>
-            block?.Code != null &&
-            block.BlockId != 0 &&
-            block.CanAttachBlockAt(
-                World.Api.World.BlockAccessor,
-                pileBlock,
-                new BlockPos(1000, 120, 1000),
-                BlockFacing.UP));
         var supportPos = new BlockPos(1000, 120, 1000);
-        await player.TeleportTo(supportPos.UpCopy());
-        await World.Ticks(2);
-        var serverApi = Assert.IsAssignableFrom<ICoreServerAPI>(World.Api);
-        serverApi.Permissions.SetRole(
-            Assert.IsAssignableFrom<IServerPlayer>(player.Player),
-            "admin");
-        await World.Ticks(2);
-        World.Api.World.BlockAccessor.SetBlock(support.BlockId, supportPos);
-        Assert.Equal(
-            support.BlockId,
-            World.Api.World.BlockAccessor.GetBlock(supportPos).BlockId);
+        var selection = await TeleportPlayerToPileLocation(player, supportPos);
         var slot = player.Player.InventoryManager.ActiveHotbarSlot;
         var placement = Assert.IsType<CollectibleBehaviorPapyrusPilePlacement>(
             soaked.GetCollectibleBehavior<CollectibleBehaviorPapyrusPilePlacement>(true));
         slot.Itemstack = new ItemStack(soaked, 3);
-        var selection = new BlockSelection
-        {
-            Position = supportPos,
-            Face = BlockFacing.UP,
-            HitPosition = new Vec3d(0.5, 1, 0.5)
-        };
-        Assert.True(player.Player.HasPrivilege("buildblockseverywhere"));
-        Assert.True(World.Api.World.BlockAccessor.GetBlock(supportPos.UpCopy()).Replaceable >= 6000);
-        Assert.True(support.CanAttachBlockAt(
-            World.Api.World.BlockAccessor,
-            pileBlock,
-            supportPos,
-            BlockFacing.UP));
         var handHandling = EnumHandHandling.NotHandled;
         var handling = EnumHandling.PassThrough;
 
@@ -255,6 +222,72 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
             ref handling);
 
         Assert.Null(World.Api.World.BlockAccessor.GetBlockEntity(unsupportedSelection.Position.UpCopy()));
+    }
+
+    [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
+    public async Task PlacementWithAnEmptyServerSourceDoesNotLeaveAnEmptyPile()
+    {
+        var player = await PrepareAdminPlayer("EmptyPlacement");
+        var soaked = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode)));
+        var supportPos = new BlockPos(1100, 120, 1100);
+        var selection = await TeleportPlayerToPileLocation(player, supportPos);
+        var placement = Assert.IsType<CollectibleBehaviorPapyrusPilePlacement>(
+            soaked.GetCollectibleBehavior<CollectibleBehaviorPapyrusPilePlacement>(true));
+        var slot = player.Player.InventoryManager.ActiveHotbarSlot;
+        slot.Itemstack = null;
+        var handHandling = EnumHandHandling.NotHandled;
+        var handling = EnumHandling.PassThrough;
+
+        placement.OnHeldInteractStart(
+            slot,
+            player.Entity,
+            selection,
+            null!,
+            true,
+            ref handHandling,
+            ref handling);
+        await World.Ticks(2);
+
+        var placementPos = selection.Position.UpCopy();
+        Assert.Null(World.Api.World.BlockAccessor.GetBlockEntity(placementPos));
+        Assert.Equal(0, World.Api.World.BlockAccessor.GetBlock(placementPos).BlockId);
+    }
+
+    [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
+    public async Task PlacementWithAChangedServerSourceDoesNotStoreTheUnrelatedItem()
+    {
+        var player = await PrepareAdminPlayer("ChangedPlacement");
+        var soaked = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode)));
+        var unrelated = World.Api.World.Items.First(item =>
+            item?.Code != null &&
+            item != soaked &&
+            item.MaxStackSize > 1);
+        var supportPos = new BlockPos(1200, 120, 1200);
+        var selection = await TeleportPlayerToPileLocation(player, supportPos);
+        var placement = Assert.IsType<CollectibleBehaviorPapyrusPilePlacement>(
+            soaked.GetCollectibleBehavior<CollectibleBehaviorPapyrusPilePlacement>(true));
+        var slot = player.Player.InventoryManager.ActiveHotbarSlot;
+        slot.Itemstack = new ItemStack(unrelated, 2);
+        var handHandling = EnumHandHandling.NotHandled;
+        var handling = EnumHandling.PassThrough;
+
+        placement.OnHeldInteractStart(
+            slot,
+            player.Entity,
+            selection,
+            null!,
+            true,
+            ref handHandling,
+            ref handling);
+        await World.Ticks(2);
+
+        Assert.Same(unrelated, slot.Itemstack.Collectible);
+        Assert.Equal(2, slot.StackSize);
+        var placementPos = selection.Position.UpCopy();
+        Assert.Null(World.Api.World.BlockAccessor.GetBlockEntity(placementPos));
+        Assert.Equal(0, World.Api.World.BlockAccessor.GetBlock(placementPos).BlockId);
     }
 
     [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
@@ -612,6 +645,54 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         var tagSet = World.Api.CollectibleTagRegistry.CreateTagSet(tag);
         return Assert.IsAssignableFrom<Item>(
             World.Api.World.Items.First(item => item?.Code != null && item.Tags.Overlaps(tagSet)));
+    }
+
+    private async Task<ITestPlayer> PrepareAdminPlayer(string playerName)
+    {
+        var player = await World.JoinPlayer(playerName);
+        var serverApi = Assert.IsAssignableFrom<ICoreServerAPI>(World.Api);
+        serverApi.Permissions.SetRole(
+            Assert.IsAssignableFrom<IServerPlayer>(player.Player),
+            "admin");
+        await World.Ticks(2);
+
+        Assert.True(player.Player.HasPrivilege("buildblockseverywhere"));
+        return player;
+    }
+
+    private async Task<BlockSelection> TeleportPlayerToPileLocation(ITestPlayer player, BlockPos supportPos)
+    {
+        var pileBlock = Assert.IsType<BlockPapyrusPile>(
+            World.Api.World.GetBlock(new AssetLocation(PapyrusConstants.PileCode)));
+        var support = World.Api.World.Blocks.First(block =>
+            block?.Code != null &&
+            block.BlockId != 0 &&
+            block.CanAttachBlockAt(
+                World.Api.World.BlockAccessor,
+                pileBlock,
+                supportPos,
+                BlockFacing.UP));
+        await player.TeleportTo(supportPos.UpCopy());
+        await World.Ticks(2);
+        World.Api.World.BlockAccessor.SetBlock(support.BlockId, supportPos);
+
+        Assert.Equal(
+            support.BlockId,
+            World.Api.World.BlockAccessor.GetBlock(supportPos).BlockId);
+        Assert.True(
+            World.Api.World.BlockAccessor.GetBlock(supportPos.UpCopy()).Replaceable >= 6000);
+        Assert.True(support.CanAttachBlockAt(
+            World.Api.World.BlockAccessor,
+            pileBlock,
+            supportPos,
+            BlockFacing.UP));
+
+        return new BlockSelection
+        {
+            Position = supportPos,
+            Face = BlockFacing.UP,
+            HitPosition = new Vec3d(0.5, 1, 0.5)
+        };
     }
 
     private int CountDroppedItems(BlockPos pos, CollectibleObject collectible) =>

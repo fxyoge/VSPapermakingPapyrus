@@ -48,15 +48,16 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         }
     }
 
-    public void AddInitialStrip(ItemSlot source, bool consume = true)
+    public bool AddInitialStrip(ItemSlot source, bool consume = true)
     {
         if (stripCount != 0 || !StoreOne(source, inventory[0], consume))
         {
-            return;
+            return false;
         }
 
         stripCount = 1;
         MarkDirty(true);
+        return true;
     }
 
     public bool Interact(IPlayer player)
@@ -346,8 +347,14 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
             return false;
         }
 
-        target.Itemstack = consume ? source.TakeOut(1) : source.Itemstack.Clone();
-        target.Itemstack.StackSize = 1;
+        var stored = consume ? source.TakeOut(1) : source.Itemstack.Clone();
+        if (stored == null)
+        {
+            return false;
+        }
+
+        stored.StackSize = 1;
+        target.Itemstack = stored;
         if (consume)
         {
             source.MarkDirty();

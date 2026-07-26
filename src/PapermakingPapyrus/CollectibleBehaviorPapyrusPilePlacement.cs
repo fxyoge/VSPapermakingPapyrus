@@ -53,6 +53,11 @@ public sealed class CollectibleBehaviorPapyrusPilePlacement(CollectibleObject co
             return;
         }
 
+        if (slot.Itemstack?.Collectible != collObj || slot.StackSize <= 0)
+        {
+            return;
+        }
+
         var pileBlock = api.World.GetBlock(new AssetLocation(PapyrusConstants.PileCode));
         if (pileBlock == null)
         {
@@ -68,9 +73,14 @@ public sealed class CollectibleBehaviorPapyrusPilePlacement(CollectibleObject co
         }
 
         pile.Orientation = byEntity.Pos.Yaw;
-        pile.AddInitialStrip(
+        if (!pile.AddInitialStrip(
             slot,
-            entityPlayer.Player.WorldData.CurrentGameMode != EnumGameMode.Creative);
+            entityPlayer.Player.WorldData.CurrentGameMode != EnumGameMode.Creative))
+        {
+            byEntity.World.BlockAccessor.SetBlock(0, placePos);
+            return;
+        }
+
         pile.PlayPlacementSound();
     }
 }
