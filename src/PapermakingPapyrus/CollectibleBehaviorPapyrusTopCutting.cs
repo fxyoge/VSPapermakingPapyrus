@@ -2,6 +2,7 @@ using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Datastructures;
+using Vintagestory.API.Util;
 
 namespace PapermakingPapyrus;
 
@@ -9,6 +10,8 @@ public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collO
     : CollectibleBehavior(collObj)
 {
     private const string CuttingAnimation = "squeezehoneycomb";
+    private const string KnifeHelpCacheKey =
+        PapyrusConstants.Domain + ":papyrus-cutting-knives";
     private static readonly AssetLocation CuttingSound =
         new(PapyrusConstants.CuttingSound);
 
@@ -21,6 +24,7 @@ public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collO
         this.api = api;
         knifeTag = api.CollectibleTagRegistry.CreateTagSet(PapyrusConstants.KnifeTag);
         knifeTagLoaded = true;
+        ObjectCacheUtil.Delete(api, KnifeHelpCacheKey);
     }
 
     public override void OnHeldInteractStart(
@@ -142,22 +146,37 @@ public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collO
             return [];
         }
 
-        var knives = api.World.Items
+        var cachedStacks = ObjectCacheUtil.GetOrCreate(
+            api,
+            KnifeHelpCacheKey,
+            FindKnifeHelpStacks);
+        if (cachedStacks.Length == 0)
+        {
+            return [];
+        }
+
+        return
+        [
+            new WorldInteraction
+            {
+                ActionLangCode = PapyrusConstants.Domain + ":heldhelp-cut-papyrus",
+                MouseButton = EnumMouseButton.Right,
+                Itemstacks = cachedStacks.Select(stack => stack.Clone()).ToArray()
+            }
+        ];
+    }
+
+    private ItemStack[] FindKnifeHelpStacks()
+    {
+        if (api == null)
+        {
+            return [];
+        }
+
+        return api.World.Items
             .Where(item => item?.Code != null && item.Tags.Overlaps(knifeTag))
             .Select(item => new ItemStack(item))
             .ToArray();
-
-        return knives.Length == 0
-            ? []
-            :
-            [
-                new WorldInteraction
-                {
-                    ActionLangCode = PapyrusConstants.Domain + ":heldhelp-cut-papyrus",
-                    MouseButton = EnumMouseButton.Right,
-                    Itemstacks = knives
-                }
-            ];
     }
 
     private bool CanCut(ItemSlot papyrusSlot, EntityAgent byEntity)
