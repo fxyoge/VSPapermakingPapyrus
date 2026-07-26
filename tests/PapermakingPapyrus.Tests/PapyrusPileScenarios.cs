@@ -3,12 +3,12 @@ using System.Reflection;
 using System.Threading.Tasks;
 using Atlas.Api;
 using Atlas.XUnit;
-using Vintagestory.Server;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
+using Vintagestory.Server;
 using Xunit;
 
 namespace PapermakingPapyrus.Tests;
@@ -269,17 +269,21 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         var firstLoadedInstance = pile;
 
         await UnloadPileChunk(player, pos, 2048);
+        Assert.False(HasDryingListener(pile));
         await AddHours(6);
         pile = await ReloadPileChunk(player, pos, 7d / 24);
         Assert.NotSame(firstLoadedInstance, pile);
+        Assert.True(HasDryingListener(pile));
 
         await AddHoursAndWaitForProgress(1, pos, 8d / 24);
         var secondLoadedInstance = pile;
 
         await UnloadPileChunk(player, pos, -2048);
+        Assert.False(HasDryingListener(pile));
         await AddHours(7);
         pile = await ReloadPileChunk(player, pos, 15d / 24);
         Assert.NotSame(secondLoadedInstance, pile);
+        Assert.True(HasDryingListener(pile));
 
         for (var hour = 16; hour <= 24; hour++)
         {
@@ -291,8 +295,86 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         Assert.True(World.BlockEntityAt<BlockEntityPapyrusPile>(pos)!.IsDry);
 
         await UnloadPileChunk(player, pos, 2048);
+        Assert.False(HasDryingListener(pile));
         pile = await ReloadPileChunk(player, pos, 25d / 24);
         Assert.True(pile.IsDry);
+        Assert.False(HasDryingListener(pile));
+    }
+
+    [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
+    public async Task DryingListenerExistsOnlyForAnActivelyDryingPile()
+    {
+        var player = await World.JoinPlayer("DryingListener");
+        var pos = new BlockPos(640, 120, 640);
+        await player.TeleportTo(pos);
+        await World.Ticks(2);
+
+        var pile = SpawnPile(pos);
+        var soaked = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode)));
+        var source = new DummySlot(new ItemStack(soaked, 8));
+        pile.AddInitialStrip(source);
+        Assert.False(HasDryingListener(pile));
+
+        for (var i = 1; i < 8; i++)
+        {
+            player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = source.TakeOut(1);
+            Assert.True(pile.Interact(player.Player));
+        }
+        Assert.False(HasDryingListener(pile));
+
+        var board = FindTagged(PapyrusConstants.PressBoardTag);
+        for (var i = 0; i < 2; i++)
+        {
+            player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(board);
+            Assert.True(pile.Interact(player.Player));
+            Assert.False(HasDryingListener(pile));
+        }
+
+        player.Player.InventoryManager.ActiveHotbarSlot.Itemstack =
+            new ItemStack(FindTagged(PapyrusConstants.PressWeightTag));
+        Assert.True(pile.Interact(player.Player));
+        Assert.True(HasDryingListener(pile));
+
+        ProcessDrying(pile);
+        ProcessDrying(pile);
+        Assert.True(HasDryingListener(pile));
+
+        SetDryingState(pile, 0.99, 1);
+        ProcessDrying(pile);
+        Assert.True(pile.IsDry);
+        Assert.False(HasDryingListener(pile));
+    }
+
+    [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
+    public async Task BreakingPileReleasesItsDryingListenerInEveryWorkState()
+    {
+        var player = await World.JoinPlayer("DryingBreak");
+        await PrepareWarmFrozenClock();
+
+        var incompletePos = new BlockPos(896, 120, 896);
+        await player.TeleportTo(incompletePos);
+        await World.Ticks(2);
+        var incomplete = SpawnPile(incompletePos);
+        incomplete.AddInitialStrip(new DummySlot(new ItemStack(
+            Assert.IsType<Item>(
+                World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode))))));
+        Assert.False(HasDryingListener(incomplete));
+        incomplete.OnBlockBroken(player.Player);
+        Assert.False(HasDryingListener(incomplete));
+
+        var active = await BuildWeightedPile(player, new BlockPos(897, 120, 896));
+        Assert.True(HasDryingListener(active));
+        active.OnBlockBroken(player.Player);
+        Assert.False(HasDryingListener(active));
+
+        var dry = await BuildWeightedPile(player, new BlockPos(898, 120, 896));
+        SetDryingState(dry, 1, 0);
+        ProcessDrying(dry);
+        Assert.True(dry.IsDry);
+        Assert.False(HasDryingListener(dry));
+        dry.OnBlockBroken(player.Player);
+        Assert.False(HasDryingListener(dry));
     }
 
     [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
@@ -393,6 +475,33 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
             BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.NotNull(method);
         method.Invoke(pile, null);
+    }
+
+    private BlockEntityPapyrusPile SpawnPile(BlockPos pos)
+    {
+        var pileBlock = Assert.IsType<BlockPapyrusPile>(
+            World.Api.World.GetBlock(new AssetLocation(PapyrusConstants.PileCode)));
+        World.Api.World.BlockAccessor.SetBlock(pileBlock.BlockId, pos);
+        World.Api.World.BlockAccessor.SpawnBlockEntity(pileBlock.EntityClass, pos);
+        return Assert.IsType<BlockEntityPapyrusPile>(
+            World.Api.World.BlockAccessor.GetBlockEntity(pos));
+    }
+
+    private static bool HasDryingListener(BlockEntityPapyrusPile pile)
+    {
+        var server = Assert.IsType<ServerMain>(pile.Api.World);
+        var field = typeof(Vintagestory.Common.EventManager).GetField(
+            "GameTickListenersBlock",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(field);
+        var listeners = Assert.IsAssignableFrom<
+            IEnumerable<Vintagestory.Common.GameTickListenerBlock>>(
+            field.GetValue(server.EventManager));
+        return listeners.Any(listener =>
+            listener != null &&
+            listener.Pos.Equals(pile.Pos) &&
+            ReferenceEquals(listener.HandlerBare?.Target, pile) &&
+            listener.HandlerBare.Method.DeclaringType == typeof(BlockEntityPapyrusPile));
     }
 
     private async Task<BlockEntityPapyrusPile> BuildWeightedPile(ITestPlayer player, BlockPos pos)

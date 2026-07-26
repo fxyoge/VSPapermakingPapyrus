@@ -19,6 +19,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
     private double lastProcessedTotalHours = -1;
     private int visualBand;
     private ClimateCondition? climateScratch;
+    private long dryingListenerId;
 
     public override InventoryBase Inventory => inventory;
 
@@ -42,10 +43,8 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         base.Initialize(api);
         if (api.Side == EnumAppSide.Server)
         {
-            RegisterGameTickListener(
-                OnDryingTick,
-                PapermakingPapyrusModSystem.Config.DryingRefreshIntervalMilliseconds);
             ProcessDrying();
+            StartDryingListenerIfNeeded();
         }
     }
 
@@ -118,6 +117,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 
     public override void OnBlockBroken(IPlayer byPlayer = null!)
     {
+        StopDryingListener();
         if (Api.Side == EnumAppSide.Server)
         {
             if (IsDry)
@@ -312,6 +312,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 
         hasWeight = true;
         lastProcessedTotalHours = Api.World.Calendar.TotalHours;
+        StartDryingListenerIfNeeded();
         return true;
     }
 
@@ -376,10 +377,42 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 
     private void OnDryingTick(float deltaTime) => ProcessDrying();
 
+    private void StartDryingListenerIfNeeded()
+    {
+        if (Api.Side != EnumAppSide.Server ||
+            !hasWeight ||
+            IsDry ||
+            dryingListenerId != 0)
+        {
+            return;
+        }
+
+        dryingListenerId = RegisterGameTickListener(
+            OnDryingTick,
+            PapermakingPapyrusModSystem.Config.DryingRefreshIntervalMilliseconds);
+    }
+
+    private void StopDryingListener()
+    {
+        if (dryingListenerId == 0 || Api == null)
+        {
+            return;
+        }
+
+        UnregisterGameTickListener(dryingListenerId);
+        dryingListenerId = 0;
+    }
+
     private void ProcessDrying()
     {
-        if (Api.Side != EnumAppSide.Server || !hasWeight || IsDry)
+        if (Api.Side != EnumAppSide.Server || !hasWeight)
         {
+            return;
+        }
+
+        if (IsDry)
+        {
+            StopDryingListener();
             return;
         }
 
@@ -403,6 +436,11 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         else
         {
             MarkDirty();
+        }
+
+        if (IsDry)
+        {
+            StopDryingListener();
         }
     }
 
