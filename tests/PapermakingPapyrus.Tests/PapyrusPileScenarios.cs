@@ -1,7 +1,9 @@
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Atlas.Api;
 using Atlas.XUnit;
+using Vintagestory.Server;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Datastructures;
@@ -327,11 +329,70 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         }
     }
 
+    [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
+    public async Task DryingOnlyQueuesVisualUpdatesWhenItsRenderedBandChanges()
+    {
+        var player = await World.JoinPlayer("DryingVisual");
+        await PrepareWarmFrozenClock();
+        var withinBand = await BuildWeightedPile(player, new BlockPos(1280, 120, 1280));
+        var crossingBand = await BuildWeightedPile(player, new BlockPos(1281, 120, 1280));
+        var server = Assert.IsType<ServerMain>(World.Api.World);
+        Assert.Equal(
+            10_000,
+            new PapermakingPapyrusConfig().DryingRefreshIntervalMilliseconds);
+
+        SetDryingState(withinBand, 0.10, 0.1);
+        var dirtyBefore = server.DirtyBlocks.Count;
+
+        ProcessDrying(withinBand);
+
+        Assert.Equal(dirtyBefore, server.DirtyBlocks.Count);
+        AssertProgress(0.10 + 0.1 / 24, withinBand.DryingProgress);
+
+        foreach (var progress in new[] { 0.24, 0.49, 0.74 })
+        {
+            SetDryingState(crossingBand, progress, 0.5);
+            dirtyBefore = server.DirtyBlocks.Count;
+            ProcessDrying(crossingBand);
+
+            Assert.Equal(dirtyBefore + 1, server.DirtyBlocks.Count);
+            AssertProgress(progress + 0.5 / 24, crossingBand.DryingProgress);
+        }
+
+        SetDryingState(crossingBand, 0.99, 0.5);
+        dirtyBefore = server.DirtyBlocks.Count;
+        ProcessDrying(crossingBand);
+
+        Assert.Equal(dirtyBefore, server.DirtyBlocks.Count);
+        Assert.True(crossingBand.IsDry);
+    }
+
     private async Task PrepareWarmFrozenClock()
     {
         Assert.True((await World.ExecuteCommand("/time setmonth jun")).Ok);
         Assert.True((await World.ExecuteCommand("/time set day")).Ok);
         Assert.True((await World.ExecuteCommand("/time speed 0")).Ok);
+    }
+
+    private void SetDryingState(
+        BlockEntityPapyrusPile pile,
+        double progress,
+        double elapsedHours)
+    {
+        var tree = new TreeAttribute();
+        pile.ToTreeAttributes(tree);
+        tree.SetDouble("dryingProgress", progress);
+        tree.SetDouble("lastProcessedTotalHours", World.Calendar.TotalHours - elapsedHours);
+        pile.FromTreeAttributes(tree, World.Api.World);
+    }
+
+    private static void ProcessDrying(BlockEntityPapyrusPile pile)
+    {
+        var method = typeof(BlockEntityPapyrusPile).GetMethod(
+            "ProcessDrying",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        method.Invoke(pile, null);
     }
 
     private async Task<BlockEntityPapyrusPile> BuildWeightedPile(ITestPlayer player, BlockPos pos)
@@ -383,6 +444,9 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         double expectedProgress)
     {
         await AddHours(hours);
+        var pile = Assert.IsType<BlockEntityPapyrusPile>(
+            World.Api.World.BlockAccessor.GetBlockEntity(pos));
+        ProcessDrying(pile);
         if (expectedProgress > 0)
         {
             await World.Until(
@@ -397,8 +461,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
 
         AssertProgress(
             expectedProgress,
-            Assert.IsType<BlockEntityPapyrusPile>(
-                World.Api.World.BlockAccessor.GetBlockEntity(pos)).DryingProgress);
+            pile.DryingProgress);
     }
 
     private async Task UnloadPileChunk(ITestPlayer player, BlockPos pos, int distance)

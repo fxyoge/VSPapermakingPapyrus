@@ -12,12 +12,18 @@ public sealed class PapermakingPapyrusConfig
     public const double DefaultDryingHours = 24;
     public const double MinDryingHours = 0.1;
     public const double MaxDryingHours = 24 * 365;
+    public const int DefaultDryingRefreshIntervalMilliseconds = 10_000;
+    public const int MinDryingRefreshIntervalMilliseconds = 1_000;
+    public const int MaxDryingRefreshIntervalMilliseconds = 3_600_000;
 
     public float CuttingDurationSeconds { get; set; } = DefaultCuttingDurationSeconds;
 
     public int DryStripsPerPapyrusTop { get; set; } = DefaultDryStripsPerPapyrusTop;
 
     public double DryingHours { get; set; } = DefaultDryingHours;
+
+    public int DryingRefreshIntervalMilliseconds { get; set; } =
+        DefaultDryingRefreshIntervalMilliseconds;
 
     public void Sanitize()
     {
@@ -80,6 +86,22 @@ public sealed class PapermakingPapyrusConfig
                 MaxDryingHours,
                 originalDryingHours,
                 DryingHours);
+        }
+
+        var originalDryingRefreshIntervalMilliseconds = DryingRefreshIntervalMilliseconds;
+        DryingRefreshIntervalMilliseconds = Math.Clamp(
+            DryingRefreshIntervalMilliseconds,
+            MinDryingRefreshIntervalMilliseconds,
+            MaxDryingRefreshIntervalMilliseconds);
+        if (originalDryingRefreshIntervalMilliseconds != DryingRefreshIntervalMilliseconds)
+        {
+            PapermakingPapyrusModSystem.Logger?.Warning(
+                "Config value {0} must be between {1} and {2}; received {3}. Using {4}.",
+                nameof(DryingRefreshIntervalMilliseconds),
+                MinDryingRefreshIntervalMilliseconds,
+                MaxDryingRefreshIntervalMilliseconds,
+                originalDryingRefreshIntervalMilliseconds,
+                DryingRefreshIntervalMilliseconds);
         }
     }
 }

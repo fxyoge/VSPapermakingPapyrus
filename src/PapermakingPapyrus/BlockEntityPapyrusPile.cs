@@ -42,7 +42,9 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         base.Initialize(api);
         if (api.Side == EnumAppSide.Server)
         {
-            RegisterGameTickListener(OnDryingTick, 2000);
+            RegisterGameTickListener(
+                OnDryingTick,
+                PapermakingPapyrusModSystem.Config.DryingRefreshIntervalMilliseconds);
             ProcessDrying();
         }
     }
@@ -55,7 +57,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         }
 
         stripCount = 1;
-        Changed();
+        MarkDirty(true);
     }
 
     public bool Interact(IPlayer player)
@@ -107,7 +109,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
             }
             else
             {
-                Changed();
+                MarkDirty(true);
             }
         }
 
@@ -392,11 +394,11 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         var next = AdvanceAcrossCalendar(dryingProgress, lastProcessedTotalHours, now);
         lastProcessedTotalHours = now;
         var nextBand = PapyrusDrying.VisualBand(next);
-        if (!next.Equals(dryingProgress) || nextBand != visualBand)
+        dryingProgress = next;
+        if (nextBand != visualBand)
         {
-            dryingProgress = next;
             visualBand = nextBand;
-            Changed();
+            MarkDirty(true);
         }
         else
         {
@@ -480,12 +482,6 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         inventory[0].Itemstack = new ItemStack(parchment);
         inventory[0].MarkDirty();
         return true;
-    }
-
-    private void Changed()
-    {
-        MarkDirty(true);
-        Api.World.BlockAccessor.MarkBlockDirty(Pos);
     }
 
     public void PlayPlacementSound() =>
