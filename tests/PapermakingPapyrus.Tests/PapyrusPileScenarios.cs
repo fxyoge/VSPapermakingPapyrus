@@ -411,6 +411,29 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
     }
 
     [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
+    public async Task BreakingWeightedPileDropsEveryStoredComponentExactlyOnce()
+    {
+        var player = await World.JoinPlayer("PileDropCounter");
+        await PrepareWarmFrozenClock();
+        var pos = new BlockPos(960, 120, 960);
+        var pile = await BuildWeightedPile(player, pos);
+        var soaked = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode)));
+        var board = FindTagged(PapyrusConstants.PressBoardTag);
+        var weight = FindTagged(PapyrusConstants.PressWeightTag);
+
+        Assert.True(HasDryingListener(pile));
+        World.Api.World.BlockAccessor.BreakBlock(pos, player.Player);
+        await World.Ticks(2);
+
+        Assert.False(HasDryingListener(pile));
+        Assert.Null(World.Api.World.BlockAccessor.GetBlockEntity(pos));
+        Assert.Equal(8, CountDroppedItems(pos, soaked));
+        Assert.Equal(2, CountDroppedItems(pos, board));
+        Assert.Equal(1, CountDroppedItems(pos, weight));
+    }
+
+    [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
     public async Task SubHourElapsedTimeProcessesAcrossUnloadedAndLoadedPhases()
     {
         var player = await World.JoinPlayer("DryingBoundary");

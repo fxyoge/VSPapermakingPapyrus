@@ -129,7 +129,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
             inventory.DropAll(Pos.ToVec3d().Add(0.5, 0.2, 0.5));
         }
 
-        base.OnBlockRemoved();
+        base.OnBlockBroken(byPlayer);
     }
 
     public override void FromTreeAttributes(ITreeAttribute tree, IWorldAccessor worldForResolving)
