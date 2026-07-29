@@ -164,13 +164,13 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         }
         else if (hasWeight)
         {
-            var dryingHours = Api.Side == EnumAppSide.Server
-                ? PapermakingPapyrusModSystem.ServerConfig.DryingHours
-                : PapermakingPapyrusModSystem.ClientSettings.DryingHours;
-            dsc.AppendLine(Lang.Get(
-                "papermakingpapyrus:pile-drying",
-                PrettyHours(dryingProgress * dryingHours),
-                PrettyHours(dryingHours)));
+            var state = visualBand switch
+            {
+                0 => "soaked",
+                1 => "damp",
+                _ => "mostlydry"
+            };
+            dsc.AppendLine(Lang.Get($"papermakingpapyrus:pile-{state}"));
         }
         else
         {
@@ -178,18 +178,6 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
             dsc.AppendLine(Lang.Get("papermakingpapyrus:pile-planks", boardCount));
             dsc.AppendLine(Lang.Get("papermakingpapyrus:pile-weight", 0));
         }
-    }
-
-    private string PrettyHours(double hours)
-    {
-        var hoursPerDay = Api.World.Calendar.HoursPerDay;
-        if (hours >= hoursPerDay)
-        {
-            var days = Math.Round(hours / hoursPerDay, 1);
-            return Lang.Get("{0} days", days);
-        }
-
-        return Lang.Get("{0} hours", Math.Floor(hours));
     }
 
     public override bool OnTesselation(ITerrainMeshPool mesher, ITesselatorAPI tesselator)
@@ -442,7 +430,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
             visualBand = nextBand;
             MarkDirty(true);
         }
-        else
+        else if (IsDry)
         {
             MarkDirty();
         }

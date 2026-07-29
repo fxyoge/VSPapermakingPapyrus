@@ -8,7 +8,9 @@
   "pile-strips": "{0}/8 papyrus strips",
   "pile-planks": "{0}/2 planks",
   "pile-weight": "{0}/1 weight",
-  "pile-drying": "Drying: {0} / {1}",
+  "pile-soaked": "Drying: Soaked",
+  "pile-damp": "Drying: Damp",
+  "pile-mostlydry": "Drying: Mostly dry",
   "pile-ready": "Papyrus ready",
   "handbook-papermakingpapyrus:papyrusmaking-title": "Crafting Mechanic: Papyrus making",
   "handbook-papermakingpapyrus:papyrusmaking-text": "<strong>Papyrus making</strong><br>Papyrus sheets are made by cutting, soaking, layering, and pressing papyrus pith.<br><br>Hold <a href=\"handbook://item-papyrustops\">papyrus tops</a> in your active hand and a <a href=\"handbooksearch://knife\">knife</a> in your offhand, then hold <hk>rightmouse</hk> to cut the pith into strips. Seal the dry strips in a <a href=\"handbook://block-barrel\">barrel</a> with 0.5 litres of water per strip for 12 hours.<br><br>Place 8 soaked strips on the ground, then add 2 <a href=\"handbooksearch://plank\">planks</a> and a <a href=\"handbooksearch://stone\">stone</a> to press them. Leave the pile to dry for about one day. Drying pauses in freezing weather.<br><br>When the papyrus is ready, collect the finished sheet with an empty hand."
