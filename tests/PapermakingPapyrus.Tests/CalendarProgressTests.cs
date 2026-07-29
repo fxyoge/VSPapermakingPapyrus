@@ -4,7 +4,7 @@ namespace PapermakingPapyrus.Tests;
 
 public sealed class CalendarProgressTests
 {
-    private static readonly CalendarProgressPolicy Policy = new(24, 3, 24 * 108);
+    private const int UnboundedForTest = 864;
 
     private struct RecordingSampler(Func<double, bool> isActive) : ICalendarActivitySampler
     {
@@ -27,7 +27,8 @@ public sealed class CalendarProgressTests
             0,
             100,
             124,
-            Policy,
+            24,
+            UnboundedForTest,
             ref sampler);
 
         Assert.Equal(1, progress);
@@ -44,7 +45,8 @@ public sealed class CalendarProgressTests
             0.25,
             0,
             24,
-            Policy,
+            24,
+            UnboundedForTest,
             ref sampler);
 
         Assert.Equal(0.75, progress, 8);
@@ -58,7 +60,8 @@ public sealed class CalendarProgressTests
             0,
             0,
             4,
-            Policy,
+            24,
+            UnboundedForTest,
             ref sampler);
 
         Assert.Equal(4d / 24, progress, 8);
@@ -72,7 +75,8 @@ public sealed class CalendarProgressTests
             23.5 / 24,
             0,
             6,
-            Policy,
+            24,
+            UnboundedForTest,
             ref sampler);
 
         Assert.Equal(26.5 / 24, progress, 8);
@@ -82,7 +86,8 @@ public sealed class CalendarProgressTests
             progress,
             6,
             12,
-            Policy,
+            24,
+            UnboundedForTest,
             ref sampler);
 
         Assert.Equal(progress, completedProgress);
@@ -90,19 +95,37 @@ public sealed class CalendarProgressTests
     }
 
     [Fact]
-    public void CatchUpIsCappedToTheMostRecentPolicyWindow()
+    public void CatchUpIsCappedToTheMostRecentPolicySamples()
     {
-        var policy = new CalendarProgressPolicy(10000, 3, 12);
         var sampler = new RecordingSampler(_ => true);
 
         CalendarProgress.Accumulate(
             0,
             0,
             100,
-            policy,
+            10000,
+            4,
             ref sampler);
 
         Assert.Equal([89.5, 92.5, 95.5, 98.5], sampler.Samples);
+    }
+
+    [Fact]
+    public void CatchUpNeverExceedsTheSampleCapWithAPartialInterval()
+    {
+        var sampler = new RecordingSampler(_ => true);
+
+        CalendarProgress.Accumulate(
+            0,
+            0,
+            100.5,
+            10000,
+            32,
+            ref sampler);
+
+        Assert.Equal(32, sampler.Samples.Count);
+        Assert.Equal(6, sampler.Samples[0]);
+        Assert.Equal(99, sampler.Samples[^1]);
     }
 
     [Theory]
@@ -114,6 +137,12 @@ public sealed class CalendarProgressTests
         var sampler = new RecordingSampler(_ => true);
         Assert.Equal(
             expected,
-            CalendarProgress.Accumulate(initial, 0, 0, Policy, ref sampler));
+            CalendarProgress.Accumulate(
+                initial,
+                0,
+                0,
+                24,
+                UnboundedForTest,
+                ref sampler));
     }
 }

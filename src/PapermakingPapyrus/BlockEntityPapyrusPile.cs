@@ -10,7 +10,7 @@ namespace PapermakingPapyrus;
 
 public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 {
-    private const double DryingCatchUpSampleIntervalHours = 3;
+    private const int MaxDryingCatchUpSamples = 32;
     private readonly InventoryGeneric inventory = new(11, null, null);
     private int stripCount;
     private int boardCount;
@@ -457,10 +457,8 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
             progress,
             fromHours,
             toHours,
-            new CalendarProgressPolicy(
-                PapermakingPapyrusModSystem.ServerConfig.DryingHours,
-                DryingCatchUpSampleIntervalHours,
-                calendar.DaysPerYear * calendar.HoursPerDay),
+            PapermakingPapyrusModSystem.ServerConfig.DryingHours,
+            MaxDryingCatchUpSamples,
             ref sampler);
     }
 

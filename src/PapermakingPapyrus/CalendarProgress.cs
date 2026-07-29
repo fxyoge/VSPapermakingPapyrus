@@ -1,16 +1,5 @@
 namespace PapermakingPapyrus;
 
-public readonly record struct CalendarProgressPolicy(
-    double RequiredActiveHours,
-    double SampleIntervalHours,
-    double MaxCatchUpHours)
-{
-    public bool IsValid =>
-        double.IsFinite(RequiredActiveHours) && RequiredActiveHours > 0 &&
-        double.IsFinite(SampleIntervalHours) && SampleIntervalHours > 0 &&
-        double.IsFinite(MaxCatchUpHours) && MaxCatchUpHours > 0;
-}
-
 public interface ICalendarActivitySampler
 {
     bool IsActiveAt(double totalHours);
@@ -18,11 +7,14 @@ public interface ICalendarActivitySampler
 
 public static class CalendarProgress
 {
+    private const double SampleIntervalHours = 3;
+
     public static double Accumulate<TSampler>(
         double progress,
         double fromTotalHours,
         double toTotalHours,
-        CalendarProgressPolicy policy,
+        double requiredActiveHours,
+        int maxSamples,
         ref TSampler sampler)
         where TSampler : struct, ICalendarActivitySampler
     {
@@ -31,21 +23,25 @@ public static class CalendarProgress
             !double.IsFinite(fromTotalHours) ||
             !double.IsFinite(toTotalHours) ||
             toTotalHours <= fromTotalHours ||
-            !policy.IsValid)
+            !double.IsFinite(requiredActiveHours) ||
+            requiredActiveHours <= 0 ||
+            maxSamples <= 0)
         {
             return progress;
         }
 
-        var catchUpFrom = Math.Max(fromTotalHours, toTotalHours - policy.MaxCatchUpHours);
-        for (var cursor = catchUpFrom; cursor < toTotalHours && progress < 1;)
+        var catchUpFrom = Math.Max(
+            fromTotalHours,
+            toTotalHours - SampleIntervalHours * maxSamples);
+        for (var cursor = catchUpFrom;
+             cursor < toTotalHours && progress < 1;
+             cursor += SampleIntervalHours)
         {
-            var interval = Math.Min(policy.SampleIntervalHours, toTotalHours - cursor);
+            var interval = Math.Min(SampleIntervalHours, toTotalHours - cursor);
             if (sampler.IsActiveAt(cursor + interval / 2))
             {
-                progress += interval / policy.RequiredActiveHours;
+                progress += interval / requiredActiveHours;
             }
-
-            cursor += interval;
         }
 
         return progress;
