@@ -16,22 +16,7 @@ test:
 validate: lint test release
 
 release:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    version="$(jq -r .version src/PapermakingPapyrus/modinfo.json)"
-    output="dist/papermakingpapyrus_${version}.zip"
-    mkdir -p dist
-    dotnet build src/PapermakingPapyrus/PapermakingPapyrus.csproj -c Release
-    rm -f "${output}"
-    (cd src/PapermakingPapyrus/bin/Release && zip -qr "../../../../${output}" \
-        papermakingpapyrus.dll \
-        papermakingpapyrus.deps.json \
-        papermakingpapyrus.pdb \
-        modinfo.json \
-        assets)
-    unzip -tq "${output}"
-    printf 'Wrote %s\n' "${output}"
+    scripts/package.sh
 
 clean:
     dotnet clean PapermakingPapyrus.slnx
-
