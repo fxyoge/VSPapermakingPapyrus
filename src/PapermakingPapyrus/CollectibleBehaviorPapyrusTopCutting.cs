@@ -63,6 +63,9 @@ public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collO
         }
 
         handling = EnumHandling.PreventDefault;
+        var cuttingDuration = byEntity.World.Side == EnumAppSide.Server
+            ? PapermakingPapyrusModSystem.ServerConfig.CuttingDurationSeconds
+            : PapermakingPapyrusModSystem.ClientSettings.CuttingDurationSeconds;
         if (byEntity.World.Rand.NextDouble() < 0.05)
         {
             PlayCuttingSound(byEntity);
@@ -70,7 +73,7 @@ public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collO
 
         return !PapyrusCuttingRules.HasCompleted(
             secondsUsed,
-            PapermakingPapyrusModSystem.Config.CuttingDurationSeconds);
+            cuttingDuration);
     }
 
     public override void OnHeldInteractStop(
@@ -87,7 +90,7 @@ public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collO
         if (byEntity.World.Side != EnumAppSide.Server ||
             !PapyrusCuttingRules.HasCompleted(
                 secondsUsed,
-                PapermakingPapyrusModSystem.Config.CuttingDurationSeconds) ||
+                PapermakingPapyrusModSystem.ServerConfig.CuttingDurationSeconds) ||
             !CanCut(slot, byEntity))
         {
             return;
@@ -112,7 +115,7 @@ public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collO
             dryStrips,
             PapyrusCuttingRules.ProducedQuantity(
                 1,
-                PapermakingPapyrusModSystem.Config.DryStripsPerPapyrusTop));
+                PapermakingPapyrusModSystem.ServerConfig.DryStripsPerPapyrusTop));
 
         PlayCuttingSound(byEntity);
         if (byEntity is EntityPlayer entityPlayer &&

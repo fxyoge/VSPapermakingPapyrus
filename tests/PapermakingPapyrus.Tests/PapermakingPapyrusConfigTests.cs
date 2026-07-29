@@ -97,4 +97,39 @@ public sealed class PapermakingPapyrusConfigTests
 
         Assert.Equal(expected, config.DryingRefreshIntervalMilliseconds);
     }
+
+    [Fact]
+    public void ClientSettingsPacketContainsOnlyPresentationRelevantGameplayValues()
+    {
+        var config = new PapermakingPapyrusConfig
+        {
+            CuttingDurationSeconds = 4.5f,
+            DryingHours = 72,
+            DryStripsPerPapyrusTop = 12,
+            DryingRefreshIntervalMilliseconds = 42_000
+        };
+
+        var packet = PapermakingPapyrusSettingsPacket.FromConfig(config);
+        var settings = packet.ToClientSettings();
+
+        Assert.Equal(4.5f, settings.CuttingDurationSeconds);
+        Assert.Equal(72, settings.DryingHours);
+    }
+
+    [Fact]
+    public void InvalidReceivedSettingsFallBackToSafeValues()
+    {
+        var packet = new PapermakingPapyrusSettingsPacket
+        {
+            CuttingDurationSeconds = float.NaN,
+            DryingHours = double.PositiveInfinity
+        };
+
+        var settings = packet.ToClientSettings();
+
+        Assert.Equal(
+            PapermakingPapyrusConfig.DefaultCuttingDurationSeconds,
+            settings.CuttingDurationSeconds);
+        Assert.Equal(PapermakingPapyrusConfig.DefaultDryingHours, settings.DryingHours);
+    }
 }

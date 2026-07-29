@@ -1,25 +1,29 @@
 using System.Collections.Concurrent;
 using Newtonsoft.Json.Linq;
+using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Datastructures;
+using Vintagestory.API.Server;
 using Vintagestory.API.Util;
 
 namespace PapermakingPapyrus;
 
 public sealed class PapermakingPapyrusModSystem : ModSystem
 {
-    internal const string MissingPileTextureWarningsCacheKey =
-        PapyrusConstants.Domain + ":missing-pile-texture-warnings";
+    public static PapermakingPapyrusConfig ServerConfig { get; private set; } = new();
 
-    internal static PapermakingPapyrusConfig Config { get; private set; } = new();
+    public static PapermakingPapyrusClientSettings ClientSettings { get; private set; } =
+        PapermakingPapyrusClientSettings.Default;
 
     internal static ILogger? Logger { get; private set; }
+
+    private ICoreServerAPI? serverApi;
 
     public override void Start(ICoreAPI api)
     {
         Logger = Mod.Logger;
-        ObjectCacheUtil.Delete(api, MissingPileTextureWarningsCacheKey);
-        api.ObjectCache[MissingPileTextureWarningsCacheKey] =
+        ObjectCacheUtil.Delete(api, PapyrusConstants.MissingPileTextureWarningsCacheKey);
+        api.ObjectCache[PapyrusConstants.MissingPileTextureWarningsCacheKey] =
             new ConcurrentDictionary<AssetLocation, byte>();
 
         api.RegisterCollectibleBehaviorClass(
@@ -34,15 +38,44 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
 
     public override void AssetsLoaded(ICoreAPI api)
     {
+        if (api.Side != EnumAppSide.Server)
+        {
+            return;
+        }
+
         var config = api.LoadModConfig<PapermakingPapyrusConfig>("papermakingpapyrus.json") ?? new();
         config.Sanitize();
 
-        Config = config;
+        ServerConfig = config;
+        api.StoreModConfig(config, "papermakingpapyrus.json");
+    }
 
-        if (api.Side == EnumAppSide.Server)
+    public override void StartClientSide(ICoreClientAPI api)
+    {
+        ClientSettings = PapermakingPapyrusClientSettings.Default;
+        api.Network.RegisterChannel(PapyrusConstants.SettingsNetworkChannel)
+            .RegisterMessageType<PapermakingPapyrusSettingsPacket>()
+            .SetMessageHandler<PapermakingPapyrusSettingsPacket>(
+                packet => ClientSettings = packet.ToClientSettings());
+    }
+
+    public override void StartServerSide(ICoreServerAPI api)
+    {
+        serverApi = api;
+        api.Network.RegisterChannel(PapyrusConstants.SettingsNetworkChannel)
+            .RegisterMessageType<PapermakingPapyrusSettingsPacket>();
+        api.Event.PlayerNowPlaying += SendSettings;
+    }
+
+    public override void Dispose()
+    {
+        if (serverApi != null)
         {
-            api.StoreModConfig(config, "papermakingpapyrus.json");
+            serverApi.Event.PlayerNowPlaying -= SendSettings;
+            serverApi = null;
         }
+
+        base.Dispose();
     }
 
     public override void AssetsFinalize(ICoreAPI api)
@@ -83,5 +116,12 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
         Mod.Logger.Notification(
             "Prepared {0} tagged knife item type(s) for offhand cutting.",
             preparedKnives);
+    }
+
+    private void SendSettings(IServerPlayer player)
+    {
+        serverApi?.Network.GetChannel(PapyrusConstants.SettingsNetworkChannel).SendPacket(
+            PapermakingPapyrusSettingsPacket.FromConfig(ServerConfig),
+            player);
     }
 }

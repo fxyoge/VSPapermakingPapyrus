@@ -164,7 +164,9 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         }
         else if (hasWeight)
         {
-            var dryingHours = PapermakingPapyrusModSystem.Config.DryingHours;
+            var dryingHours = Api.Side == EnumAppSide.Server
+                ? PapermakingPapyrusModSystem.ServerConfig.DryingHours
+                : PapermakingPapyrusModSystem.ClientSettings.DryingHours;
             dsc.AppendLine(Lang.Get(
                 "papermakingpapyrus:pile-drying",
                 PrettyHours(dryingProgress * dryingHours),
@@ -396,7 +398,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 
         dryingListenerId = RegisterGameTickListener(
             OnDryingTick,
-            PapermakingPapyrusModSystem.Config.DryingRefreshIntervalMilliseconds);
+            PapermakingPapyrusModSystem.ServerConfig.DryingRefreshIntervalMilliseconds);
     }
 
     private void StopDryingListener()
@@ -468,7 +470,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
             fromHours,
             toHours,
             new CalendarProgressPolicy(
-                PapermakingPapyrusModSystem.Config.DryingHours,
+                PapermakingPapyrusModSystem.ServerConfig.DryingHours,
                 DryingCatchUpSampleIntervalHours,
                 calendar.DaysPerYear * calendar.HoursPerDay),
             ref sampler);

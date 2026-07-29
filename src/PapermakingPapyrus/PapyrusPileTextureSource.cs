@@ -23,7 +23,7 @@ internal sealed class PapyrusPileTextureSource : ITexPositionSource
         missingTextureWarnings =
             ObjectCacheUtil.TryGet<ConcurrentDictionary<AssetLocation, byte>>(
                 capi,
-                PapermakingPapyrusModSystem.MissingPileTextureWarningsCacheKey)
+                PapyrusConstants.MissingPileTextureWarningsCacheKey)
             ?? throw new InvalidOperationException(
                 "Missing pile texture warning cache was not initialized.");
         textures = new Dictionary<string, AssetLocation>
