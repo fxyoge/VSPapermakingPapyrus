@@ -10,8 +10,15 @@ format:
 lint:
     dotnet format PapermakingPapyrus.slnx --verify-no-changes
 
-test:
-    dotnet test PapermakingPapyrus.slnx
+test *mods:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ -z "{{mods}}" ]]; then
+        dotnet test PapermakingPapyrus.slnx
+    else
+        scripts/install-test-mods.sh .cache/moddb .testmods {{mods}}
+        ATLAS_EXTERNAL_MODS="$PWD/.testmods" dotnet test PapermakingPapyrus.slnx
+    fi
 
 validate: lint test release
 
