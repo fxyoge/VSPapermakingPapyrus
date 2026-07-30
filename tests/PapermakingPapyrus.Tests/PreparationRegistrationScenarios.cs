@@ -86,6 +86,50 @@ public sealed class PreparationRegistrationScenarios : AtlasScenarioBase
     }
 
     [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
+    public async Task BookbindersCuttingAcceptsKnivesWithLessThanItsDurabilityCost()
+    {
+        if (!PapermakingPapyrusModSystem.BookbindersEnabled)
+        {
+            return;
+        }
+
+        var player = await World.JoinPlayer("EdgeCutter");
+        var knife = FindKnife();
+        var tops = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.PapyrusTopsCode)));
+        var papyrusSlot = player.Player.InventoryManager.ActiveHotbarSlot;
+
+        foreach (var remainingDurability in new[] { 1, 2 })
+        {
+            papyrusSlot.Itemstack = new ItemStack(tops, 2);
+            var knifeStack = new ItemStack(knife);
+            knife.SetDurability(knifeStack, remainingDurability);
+            player.Entity.LeftHandItemSlot.Itemstack = knifeStack;
+            var stripsBefore = CountInventoryStrips(player);
+
+            var handling = EnumHandHandling.NotHandled;
+            tops.OnHeldInteractStart(
+                papyrusSlot,
+                player.Entity,
+                null!,
+                null!,
+                true,
+                ref handling);
+            tops.OnHeldInteractStop(
+                PapermakingPapyrusConfig.DefaultCuttingDurationSeconds,
+                papyrusSlot,
+                player.Entity,
+                null!,
+                null!);
+            await World.Ticks(2);
+
+            Assert.Equal(EnumHandHandling.PreventDefault, handling);
+            Assert.Equal(1, papyrusSlot.StackSize);
+            Assert.Equal(stripsBefore + 1, CountInventoryStrips(player));
+        }
+    }
+
+    [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
     public async Task CancelledCuttingDoesNotMutateInputs()
     {
         var player = await World.JoinPlayer("PapyrusCanceller");

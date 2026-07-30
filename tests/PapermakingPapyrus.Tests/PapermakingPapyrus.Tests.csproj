@@ -33,6 +33,11 @@
     <ProjectReference Include="../../src/PapermakingPapyrus/PapermakingPapyrus.csproj" AtlasMod="true" />
   </ItemGroup>
 
+  <Target Name="ResetAtlasModManifest"
+          BeforeTargets="Build">
+    <Delete Files="$(TargetDir)atlas-mods.generated.txt" />
+  </Target>
+
   <Target Name="AppendExternalAtlasMods"
           AfterTargets="Build"
           Condition="'$(ATLAS_EXTERNAL_MODS)' != ''">

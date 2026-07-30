@@ -1,8 +1,10 @@
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Atlas.Api;
 using Atlas.XUnit;
 using Vintagestory.API.Common;
+using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Xunit;
 
@@ -119,6 +121,56 @@ public sealed class BookbindersCompatibilityScenarios : AtlasScenarioBase
         pile.Inventory[0].MarkDirty();
         Assert.Equal(PapyrusPileWorkState.Pressing, pile.Snapshot.WorkState);
         Assert.False(pile.Snapshot.RequiresResoaking);
+    }
+
+    [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
+    public async Task ReloadedIncompletePileCatchesUpBookbindersStripTransition()
+    {
+        if (!PapermakingPapyrusModSystem.BookbindersEnabled)
+        {
+            return;
+        }
+
+        var player = await World.JoinPlayer("StripTransition");
+        var wet = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(
+                PapyrusConstants.BookbindersWetStripsCode)));
+        var pos = new BlockPos(1420, 120, 1420);
+
+        await player.TeleportTo(pos);
+        await World.Ticks(2);
+        var original = SpawnPile(pos);
+        Assert.True(original.AddInitialStrip(new DummySlot(new ItemStack(wet))));
+
+        // Establish the transition clock before serializing the pile, as normal
+        // inventory ticking does when a freshly soaked strip is first observed.
+        wet.UpdateAndGetTransitionStates(World.Api.World, original.Inventory[0]);
+        var saved = new TreeAttribute();
+        original.ToTreeAttributes(saved);
+
+        var reloaded = SpawnPile(pos.AddCopy(1, 0, 0));
+        reloaded.FromTreeAttributes(saved, World.Api.World);
+        var transitionState = Assert.IsAssignableFrom<ITreeAttribute>(
+            reloaded.Inventory[0].Itemstack?.Attributes["transitionstate"]);
+        transitionState.SetDouble(
+            "lastUpdatedTotalHours",
+            World.Calendar.TotalHours - 1_000);
+        ProcessDrying(reloaded);
+
+        Assert.Equal(
+            PapyrusConstants.BookbindersDryStripsCode,
+            reloaded.Inventory[0].Itemstack?.Collectible?.Code?.ToString());
+        Assert.Equal(PapyrusPileWorkState.ResoakRequired, reloaded.Snapshot.WorkState);
+        Assert.True(reloaded.Snapshot.RequiresResoaking);
+    }
+
+    private static void ProcessDrying(BlockEntityPapyrusPile pile)
+    {
+        var method = typeof(BlockEntityPapyrusPile).GetMethod(
+            "ProcessDrying",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        method.Invoke(pile, null);
     }
 
     private BlockEntityPapyrusPile SpawnPile(BlockPos pos)
