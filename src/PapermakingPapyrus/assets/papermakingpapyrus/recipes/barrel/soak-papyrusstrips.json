@@ -1,13 +1,13 @@
 [
   {
     code: "soak-papyrusstrips",
-    sealHours: 12,
+    sealHours: 36,
     ingredients: [
       {
         type: "item",
         code: "game:waterportion",
-        litres: 0.5,
-        consumeLitres: 0.5
+        litres: 1,
+        consumeLitres: 1
       },
       {
         type: "item",
