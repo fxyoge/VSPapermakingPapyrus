@@ -65,6 +65,33 @@ public sealed class PapyrusPileStateTests
         Assert.Equal(PapyrusPileAction.None, pressing.NextAction(false, false, false, true));
     }
 
+    [Fact]
+    public void ResoakRequiredPilePermitsOnlyReverseOrderRemoval()
+    {
+        var recovery = new PapyrusPileSnapshot(
+            8,
+            1,
+            false,
+            PapyrusPileWorkState.ResoakRequired,
+            true);
+
+        Assert.True(recovery.IsValid);
+        Assert.Equal(
+            PapyrusPileAction.RemoveBoard,
+            recovery.NextAction(true, false, false, false));
+        Assert.Equal(
+            PapyrusPileAction.None,
+            recovery.NextAction(false, true, false, false));
+        Assert.Equal(
+            PapyrusPileAction.None,
+            recovery.NextAction(false, false, false, true));
+
+        recovery = recovery with { BoardCount = 0 };
+        Assert.Equal(
+            PapyrusPileAction.RemoveStrip,
+            recovery.NextAction(true, false, false, false));
+    }
+
     [Theory]
     [InlineData(0, 6, 24, false, 0.25)]
     [InlineData(0.5, 12, 24, false, 1)]

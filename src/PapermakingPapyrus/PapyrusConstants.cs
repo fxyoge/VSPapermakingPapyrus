@@ -9,6 +9,10 @@ public static class PapyrusConstants
     public const string DryStripsCode = Domain + ":papyrusstrips-dry";
     public const string SoakedStripsCode = Domain + ":papyrusstrips-soaked";
     public const string ParchmentCode = "game:paper-parchment";
+    public const string BookbindersModId = "bookbinders";
+    public const string BookbindersDryStripsCode = "bookbinders:strips-papyrus-dry";
+    public const string BookbindersWetStripsCode = "bookbinders:strips-papyrus-wet";
+    public const string BookbindersRoughPapyrusCode = "bookbinders:parchment-rough";
     public const string SoakedSheetCode = Domain + ":papyrussheet-soaked";
     public const string PapyrusTopsCode = "game:papyrustops";
     public const string PileCode = Domain + ":papyruspile";

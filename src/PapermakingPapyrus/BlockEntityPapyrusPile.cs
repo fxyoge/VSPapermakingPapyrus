@@ -28,9 +28,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
     public float Orientation { get; set; }
 
     public PapyrusPileSnapshot Snapshot =>
-        new(stripCount, boardCount, hasWeight, IsDry
-            ? PapyrusPileWorkState.Dry
-            : PapyrusPileSnapshot.DeriveState(stripCount, boardCount, hasWeight));
+        CreateSnapshot();
 
     public double DryingProgress => dryingProgress;
 
@@ -56,6 +54,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         }
 
         stripCount = 1;
+        StartDryingListenerIfNeeded();
         MarkDirty(true);
         return true;
     }
@@ -79,7 +78,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         var consume = player.WorldData.CurrentGameMode != EnumGameMode.Creative;
         var action = Snapshot.NextAction(
             stack == null,
-            HasTag(stack, PapyrusConstants.SoakedStripTag),
+            IsSoakedStrip(stack),
             HasTag(stack, PapyrusConstants.PressBoardTag),
             HasTag(stack, PapyrusConstants.PressWeightTag));
 
@@ -109,6 +108,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
             }
             else
             {
+                StartDryingListenerIfNeeded();
                 MarkDirty(true);
             }
         }
@@ -161,6 +161,10 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         if (IsDry)
         {
             dsc.AppendLine(Lang.Get("papermakingpapyrus:pile-ready"));
+        }
+        else if (Snapshot.RequiresResoaking)
+        {
+            dsc.AppendLine(Lang.Get("papermakingpapyrus:pile-resoak-required"));
         }
         else if (hasWeight)
         {
@@ -377,8 +381,9 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
     private void StartDryingListenerIfNeeded()
     {
         if (Api.Side != EnumAppSide.Server ||
-            !hasWeight ||
             IsDry ||
+            (!hasWeight &&
+             (!PapermakingPapyrusModSystem.BookbindersEnabled || stripCount == 0)) ||
             dryingListenerId != 0)
         {
             return;
@@ -402,8 +407,14 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 
     private void ProcessDrying()
     {
-        if (Api.Side != EnumAppSide.Server || !hasWeight)
+        if (Api.Side != EnumAppSide.Server)
         {
+            return;
+        }
+
+        if (!hasWeight)
+        {
+            ProcessIncompleteStripTransitions();
             return;
         }
 
@@ -438,6 +449,25 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         if (IsDry)
         {
             StopDryingListener();
+        }
+    }
+
+    private void ProcessIncompleteStripTransitions()
+    {
+        var requiredResoakingBefore = HasDryUnpressedStrips();
+        var changed = false;
+        for (var i = 0; i < stripCount; i++)
+        {
+            var slot = inventory[i];
+            var codeBefore = slot.Itemstack?.Collectible?.Code;
+            slot.Itemstack?.Collectible.UpdateAndGetTransitionStates(Api.World, slot);
+            changed |= codeBefore != slot.Itemstack?.Collectible?.Code;
+        }
+
+        var requiredResoakingAfter = HasDryUnpressedStrips();
+        if (changed || requiredResoakingBefore != requiredResoakingAfter)
+        {
+            MarkDirty(true);
         }
     }
 
@@ -496,13 +526,14 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 
     private bool ResolveFinishedSheet()
     {
-        var parchment = Api.World.GetItem(new AssetLocation(PapyrusConstants.ParchmentCode));
+        var outputCode = PapermakingPapyrusModSystem.ActiveFinishedSheetCode;
+        var parchment = Api.World.GetItem(new AssetLocation(outputCode));
         if (parchment == null)
         {
             PapermakingPapyrusModSystem.Logger?.Error(
                 "Cannot resolve completed pile at {0}: collectible {1} is missing. Returning stored inputs instead.",
                 Pos,
-                PapyrusConstants.ParchmentCode);
+                outputCode);
             return false;
         }
 
@@ -516,6 +547,35 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         inventory[0].MarkDirty();
         return true;
     }
+
+    private PapyrusPileSnapshot CreateSnapshot()
+    {
+        var requiresResoaking = HasDryUnpressedStrips();
+        return new PapyrusPileSnapshot(
+            stripCount,
+            boardCount,
+            hasWeight,
+            IsDry
+                ? PapyrusPileWorkState.Dry
+                : PapyrusPileSnapshot.DeriveState(
+                    stripCount,
+                    boardCount,
+                    hasWeight,
+                    requiresResoaking),
+            requiresResoaking);
+    }
+
+    private bool HasDryUnpressedStrips() =>
+        PapermakingPapyrusModSystem.BookbindersEnabled &&
+        !hasWeight &&
+        Enumerable.Range(0, stripCount).Any(
+            index => inventory[index].Itemstack?.Collectible?.Code?.ToString() ==
+                PapyrusConstants.BookbindersDryStripsCode);
+
+    private bool IsSoakedStrip(ItemStack? stack) =>
+        stack?.Collectible?.Code?.ToString() ==
+            PapermakingPapyrusModSystem.ActiveSoakedStripsCode ||
+        HasTag(stack, PapyrusConstants.SoakedStripTag);
 
     public void PlayPlacementSound() =>
         PlaySound(PapyrusConstants.StripSound);

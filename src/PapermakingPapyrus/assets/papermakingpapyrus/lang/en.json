@@ -8,6 +8,7 @@
   "pile-strips": "{0}/8 papyrus strips",
   "pile-planks": "{0}/2 planks",
   "pile-weight": "{0}/1 weight",
+  "pile-resoak-required": "Strips dried; remove and resoak them",
   "pile-soaked": "Drying: Soaked",
   "pile-damp": "Drying: Damp",
   "pile-mostlydry": "Drying: Mostly dry",

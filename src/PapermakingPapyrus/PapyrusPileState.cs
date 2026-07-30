@@ -4,6 +4,7 @@ public enum PapyrusPileWorkState
 {
     Laying,
     Boarded,
+    ResoakRequired,
     Pressing,
     Dry
 }
@@ -23,7 +24,8 @@ public readonly record struct PapyrusPileSnapshot(
     int StripCount,
     int BoardCount,
     bool HasWeight,
-    PapyrusPileWorkState WorkState)
+    PapyrusPileWorkState WorkState,
+    bool RequiresResoaking = false)
 {
     public static PapyrusPileSnapshot Empty => new(0, 0, false, PapyrusPileWorkState.Laying);
 
@@ -34,11 +36,16 @@ public readonly record struct PapyrusPileSnapshot(
         BoardCount is >= 0 and <= 2 &&
         (!HasWeight || StripCount == 8 && BoardCount == 2) &&
         (BoardCount == 0 || StripCount == 8) &&
-        (WorkState == DeriveState(StripCount, BoardCount, HasWeight) ||
+        (WorkState == DeriveState(StripCount, BoardCount, HasWeight, RequiresResoaking) ||
          WorkState == PapyrusPileWorkState.Dry && HasWeight);
 
-    public static PapyrusPileWorkState DeriveState(int strips, int boards, bool weight) =>
+    public static PapyrusPileWorkState DeriveState(
+        int strips,
+        int boards,
+        bool weight,
+        bool requiresResoaking = false) =>
         weight ? PapyrusPileWorkState.Pressing :
+        requiresResoaking ? PapyrusPileWorkState.ResoakRequired :
         boards > 0 ? PapyrusPileWorkState.Boarded :
         PapyrusPileWorkState.Laying;
 
@@ -47,6 +54,18 @@ public readonly record struct PapyrusPileSnapshot(
         if (HasWeight)
         {
             return PapyrusPileAction.None;
+        }
+
+        if (RequiresResoaking)
+        {
+            if (!emptyHand)
+            {
+                return PapyrusPileAction.None;
+            }
+
+            return BoardCount > 0 ? PapyrusPileAction.RemoveBoard :
+                StripCount > 0 ? PapyrusPileAction.RemoveStrip :
+                PapyrusPileAction.None;
         }
 
         if (emptyHand)

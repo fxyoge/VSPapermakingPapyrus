@@ -24,13 +24,16 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         var soaked = Assert.IsType<Item>(
             World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode)));
         var parchment = Assert.IsAssignableFrom<Item>(
-            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.ParchmentCode)));
+            World.Api.World.GetItem(new AssetLocation(
+                PapermakingPapyrusModSystem.ActiveFinishedSheetCode)));
         var boardTag = World.Api.CollectibleTagRegistry.CreateTagSet(PapyrusConstants.PressBoardTag);
         var weightTag = World.Api.CollectibleTagRegistry.CreateTagSet(PapyrusConstants.PressWeightTag);
 
         Assert.IsType<BlockPapyrusPile>(pile);
         Assert.NotNull(soaked.GetCollectibleBehavior<CollectibleBehaviorPapyrusPilePlacement>(true));
-        Assert.Equal("game:paper-parchment", parchment.Code.ToString());
+        Assert.Equal(
+            PapermakingPapyrusModSystem.ActiveFinishedSheetCode,
+            parchment.Code.ToString());
         Assert.Contains(World.Api.World.Items, item => item?.Code != null && item.Tags.Overlaps(boardTag));
         Assert.Contains(World.Api.World.Items, item => item?.Code != null && item.Tags.Overlaps(weightTag));
         return Task.CompletedTask;
@@ -97,7 +100,8 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         var soaked = Assert.IsType<Item>(
             World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode)));
         var parchment = Assert.IsAssignableFrom<Item>(
-            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.ParchmentCode)));
+            World.Api.World.GetItem(new AssetLocation(
+                PapermakingPapyrusModSystem.ActiveFinishedSheetCode)));
         var board = FindTagged(PapyrusConstants.PressBoardTag);
         var weight = FindTagged(PapyrusConstants.PressWeightTag);
         var pileBlock = Assert.IsType<BlockPapyrusPile>(
@@ -347,21 +351,27 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
             World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode)));
         var source = new DummySlot(new ItemStack(soaked, 8));
         pile.AddInitialStrip(source);
-        Assert.False(HasDryingListener(pile));
+        Assert.Equal(
+            PapermakingPapyrusModSystem.BookbindersEnabled,
+            HasDryingListener(pile));
 
         for (var i = 1; i < 8; i++)
         {
             player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = source.TakeOut(1);
             Assert.True(pile.Interact(player.Player));
         }
-        Assert.False(HasDryingListener(pile));
+        Assert.Equal(
+            PapermakingPapyrusModSystem.BookbindersEnabled,
+            HasDryingListener(pile));
 
         var board = FindTagged(PapyrusConstants.PressBoardTag);
         for (var i = 0; i < 2; i++)
         {
             player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(board);
             Assert.True(pile.Interact(player.Player));
-            Assert.False(HasDryingListener(pile));
+            Assert.Equal(
+                PapermakingPapyrusModSystem.BookbindersEnabled,
+                HasDryingListener(pile));
         }
 
         player.Player.InventoryManager.ActiveHotbarSlot.Itemstack =
@@ -392,7 +402,9 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         incomplete.AddInitialStrip(new DummySlot(new ItemStack(
             Assert.IsType<Item>(
                 World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode))))));
-        Assert.False(HasDryingListener(incomplete));
+        Assert.Equal(
+            PapermakingPapyrusModSystem.BookbindersEnabled,
+            HasDryingListener(incomplete));
         incomplete.OnBlockBroken(player.Player);
         Assert.False(HasDryingListener(incomplete));
 
