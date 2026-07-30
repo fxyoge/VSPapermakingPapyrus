@@ -1,0 +1,11 @@
+[
+  {
+    file: "papermakingpapyrus:config/handbook/20-papyrusmaking.json",
+    op: "replace",
+    path: "/text",
+    value: "handbook-papermakingpapyrus:papyrusmaking-text-bookbinders",
+    dependsOn: [
+      { modid: "bookbinders" }
+    ]
+  }
+]
