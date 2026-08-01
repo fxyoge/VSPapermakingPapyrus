@@ -126,7 +126,7 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
             }
         }
 
-        if (api.Side == EnumAppSide.Server && BookbindersEnabled)
+        if (BookbindersEnabled)
         {
             var removed = api.World.GridRecipes.RemoveAll(IsBookbindersPapyrusPressRecipe);
             Mod.Logger.Notification(
