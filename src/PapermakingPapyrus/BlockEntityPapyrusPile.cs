@@ -20,6 +20,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
     private int visualBand;
     private ClimateCondition? climateScratch;
     private long dryingListenerId;
+    private PapyrusPileTags tags = null!;
 
     public override InventoryBase Inventory => inventory;
 
@@ -39,6 +40,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
     public override void Initialize(ICoreAPI api)
     {
         base.Initialize(api);
+        tags = (PapyrusPileTags)api.ObjectCache[PapyrusConstants.PileTagsCacheKey];
         if (api.Side == EnumAppSide.Server)
         {
             ProcessDrying();
@@ -78,9 +80,9 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         var consume = player.WorldData.CurrentGameMode != EnumGameMode.Creative;
         var action = Snapshot.NextAction(
             stack == null,
-            IsSoakedStrip(stack),
-            HasTag(stack, PapyrusConstants.PressBoardTag),
-            HasTag(stack, PapyrusConstants.PressWeightTag));
+            HasTag(stack, tags.SoakedStrip),
+            HasTag(stack, tags.PressBoard),
+            HasTag(stack, tags.PressWeight));
 
         var changed = action switch
         {
@@ -357,9 +359,8 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         return target.Itemstack != null;
     }
 
-    private bool HasTag(ItemStack? stack, string tag) =>
-        stack != null && stack.Collectible.Tags.Overlaps(
-            Api.CollectibleTagRegistry.CreateTagSet(tag));
+    private static bool HasTag(ItemStack? stack, TagSet tag) =>
+        stack != null && stack.Collectible.Tags.Overlaps(tag);
 
     private void RecountAndRepair()
     {
@@ -382,8 +383,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
     {
         if (Api.Side != EnumAppSide.Server ||
             IsDry ||
-            (!hasWeight &&
-             (!PapermakingPapyrusModSystem.BookbindersEnabled || stripCount == 0)) ||
+            (!hasWeight && !HasWetUnpressedStrips()) ||
             dryingListenerId != 0)
         {
             return;
@@ -468,6 +468,11 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         if (changed || requiredResoakingBefore != requiredResoakingAfter)
         {
             MarkDirty(true);
+        }
+
+        if (!HasWetUnpressedStrips())
+        {
+            StopDryingListener();
         }
     }
 
@@ -566,16 +571,18 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
     }
 
     private bool HasDryUnpressedStrips() =>
-        PapermakingPapyrusModSystem.BookbindersEnabled &&
         !hasWeight &&
         Enumerable.Range(0, stripCount).Any(
-            index => inventory[index].Itemstack?.Collectible?.Code?.ToString() ==
-                PapyrusConstants.BookbindersDryStripsCode);
+            index =>
+                HasTag(inventory[index].Itemstack, tags.PapyrusStrip) &&
+                !HasTag(inventory[index].Itemstack, tags.SoakedStrip));
 
-    private bool IsSoakedStrip(ItemStack? stack) =>
-        stack?.Collectible?.Code?.ToString() ==
-            PapermakingPapyrusModSystem.ActiveSoakedStripsCode ||
-        HasTag(stack, PapyrusConstants.SoakedStripTag);
+    private bool HasWetUnpressedStrips() =>
+        !hasWeight &&
+        Enumerable.Range(0, stripCount).Any(
+            index => HasTag(
+                inventory[index].Itemstack,
+                tags.AirDryingPapyrusStrip));
 
     public void PlayPlacementSound() =>
         PlaySound(PapyrusConstants.StripSound);

@@ -353,27 +353,21 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
             World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode)));
         var source = new DummySlot(new ItemStack(soaked, 8));
         pile.AddInitialStrip(source);
-        Assert.Equal(
-            PapermakingPapyrusModSystem.BookbindersEnabled,
-            HasDryingListener(pile));
+        Assert.False(HasDryingListener(pile));
 
         for (var i = 1; i < 8; i++)
         {
             player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = source.TakeOut(1);
             Assert.True(pile.Interact(player.Player));
         }
-        Assert.Equal(
-            PapermakingPapyrusModSystem.BookbindersEnabled,
-            HasDryingListener(pile));
+        Assert.False(HasDryingListener(pile));
 
         var board = FindTagged(PapyrusConstants.PressBoardTag);
         for (var i = 0; i < 2; i++)
         {
             player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(board);
             Assert.True(pile.Interact(player.Player));
-            Assert.Equal(
-                PapermakingPapyrusModSystem.BookbindersEnabled,
-                HasDryingListener(pile));
+            Assert.False(HasDryingListener(pile));
         }
 
         player.Player.InventoryManager.ActiveHotbarSlot.Itemstack =
@@ -404,9 +398,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         incomplete.AddInitialStrip(new DummySlot(new ItemStack(
             Assert.IsType<Item>(
                 World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode))))));
-        Assert.Equal(
-            PapermakingPapyrusModSystem.BookbindersEnabled,
-            HasDryingListener(incomplete));
+        Assert.False(HasDryingListener(incomplete));
         incomplete.OnBlockBroken(player.Player);
         Assert.False(HasDryingListener(incomplete));
 

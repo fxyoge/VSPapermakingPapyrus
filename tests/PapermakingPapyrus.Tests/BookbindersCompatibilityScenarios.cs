@@ -7,6 +7,7 @@ using Vintagestory.API.Common;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Xunit;
+using static PapermakingPapyrus.Tests.PapyrusPileTestHelpers;
 
 namespace PapermakingPapyrus.Tests;
 
@@ -33,7 +34,18 @@ public sealed class BookbindersCompatibilityScenarios : AtlasScenarioBase
         var rough = Assert.IsAssignableFrom<Item>(
             World.Api.World.GetItem(new AssetLocation(
                 PapyrusConstants.BookbindersRoughPapyrusCode)));
+        var papyrusStripTag = World.Api.CollectibleTagRegistry.CreateTagSet(
+            PapyrusConstants.PapyrusStripTag);
+        var airDryingPapyrusStripTag = World.Api.CollectibleTagRegistry.CreateTagSet(
+            PapyrusConstants.AirDryingPapyrusStripTag);
+        var soakedStripTag = World.Api.CollectibleTagRegistry.CreateTagSet(
+            PapyrusConstants.SoakedStripTag);
 
+        Assert.True(dry.Tags.Overlaps(papyrusStripTag));
+        Assert.True(wet.Tags.Overlaps(papyrusStripTag));
+        Assert.False(dry.Tags.Overlaps(airDryingPapyrusStripTag));
+        Assert.True(wet.Tags.Overlaps(airDryingPapyrusStripTag));
+        Assert.True(wet.Tags.Overlaps(soakedStripTag));
         Assert.NotNull(
             wet.GetCollectibleBehavior<CollectibleBehaviorPapyrusPilePlacement>(true));
         Assert.Contains(
@@ -141,6 +153,7 @@ public sealed class BookbindersCompatibilityScenarios : AtlasScenarioBase
         await World.Ticks(2);
         var original = SpawnPile(pos);
         Assert.True(original.AddInitialStrip(new DummySlot(new ItemStack(wet))));
+        Assert.True(HasDryingListener(original));
 
         // Establish the transition clock before serializing the pile, as normal
         // inventory ticking does when a freshly soaked strip is first observed.
@@ -162,6 +175,14 @@ public sealed class BookbindersCompatibilityScenarios : AtlasScenarioBase
             reloaded.Inventory[0].Itemstack?.Collectible?.Code?.ToString());
         Assert.Equal(PapyrusPileWorkState.ResoakRequired, reloaded.Snapshot.WorkState);
         Assert.True(reloaded.Snapshot.RequiresResoaking);
+
+        transitionState = Assert.IsAssignableFrom<ITreeAttribute>(
+            original.Inventory[0].Itemstack?.Attributes["transitionstate"]);
+        transitionState.SetDouble(
+            "lastUpdatedTotalHours",
+            World.Calendar.TotalHours - 1_000);
+        ProcessDrying(original);
+        Assert.False(HasDryingListener(original));
     }
 
     private static void ProcessDrying(BlockEntityPapyrusPile pile)

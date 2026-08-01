@@ -17,11 +17,6 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
             ? PapyrusConstants.BookbindersDryStripsCode
             : PapyrusConstants.DryStripsCode;
 
-    public static string ActiveSoakedStripsCode =>
-        BookbindersEnabled
-            ? PapyrusConstants.BookbindersWetStripsCode
-            : PapyrusConstants.SoakedStripsCode;
-
     public static string ActiveFinishedSheetCode =>
         BookbindersEnabled
             ? PapyrusConstants.BookbindersRoughPapyrusCode
@@ -40,6 +35,7 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
     {
         Logger = Mod.Logger;
         ObjectCacheUtil.Delete(api, PapyrusConstants.MissingPileTextureWarningsCacheKey);
+        ObjectCacheUtil.Delete(api, PapyrusConstants.PileTagsCacheKey);
         api.ObjectCache[PapyrusConstants.MissingPileTextureWarningsCacheKey] =
             new ConcurrentDictionary<AssetLocation, byte>();
 
@@ -97,6 +93,9 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
 
     public override void AssetsFinalize(ICoreAPI api)
     {
+        api.ObjectCache[PapyrusConstants.PileTagsCacheKey] =
+            new PapyrusPileTags(api.CollectibleTagRegistry);
+
         BookbindersEnabled =
             api.ModLoader.IsModEnabled(PapyrusConstants.BookbindersModId) &&
             api.World.GetItem(new AssetLocation(PapyrusConstants.BookbindersDryStripsCode)) != null &&
@@ -113,15 +112,12 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
             papyrusTops.CollectibleBehaviors = [.. papyrusTops.CollectibleBehaviors, behavior];
         }
 
-        foreach (var soakedCode in new[]
-                 {
-                     PapyrusConstants.SoakedStripsCode,
-                     ActiveSoakedStripsCode
-                 }.Distinct())
+        var soakedStripTag = api.CollectibleTagRegistry.CreateTagSet(
+            PapyrusConstants.SoakedStripTag);
+        foreach (var soakedStrips in api.World.Items.Where(
+                     item => item?.Code != null && item.Tags.Overlaps(soakedStripTag)))
         {
-            var soakedStrips = api.World.GetItem(new AssetLocation(soakedCode));
-            if (soakedStrips != null &&
-                soakedStrips.GetCollectibleBehavior<CollectibleBehaviorPapyrusPilePlacement>(true) == null)
+            if (soakedStrips.GetCollectibleBehavior<CollectibleBehaviorPapyrusPilePlacement>(true) == null)
             {
                 var behavior = new CollectibleBehaviorPapyrusPilePlacement(soakedStrips);
                 behavior.Initialize(new JsonObject(new JObject()));
