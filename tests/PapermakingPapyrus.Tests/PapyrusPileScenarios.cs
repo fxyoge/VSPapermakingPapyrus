@@ -11,6 +11,7 @@ using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.Server;
 using Xunit;
+using static PapermakingPapyrus.Tests.PapyrusPileTestHelpers;
 
 namespace PapermakingPapyrus.Tests;
 
@@ -556,23 +557,6 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         World.Api.World.BlockAccessor.SpawnBlockEntity(pileBlock.EntityClass, pos);
         return Assert.IsType<BlockEntityPapyrusPile>(
             World.Api.World.BlockAccessor.GetBlockEntity(pos));
-    }
-
-    private static bool HasDryingListener(BlockEntityPapyrusPile pile)
-    {
-        var server = Assert.IsType<ServerMain>(pile.Api.World);
-        var field = typeof(Vintagestory.Common.EventManager).GetField(
-            "GameTickListenersBlock",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.NotNull(field);
-        var listeners = Assert.IsAssignableFrom<
-            IEnumerable<Vintagestory.Common.GameTickListenerBlock>>(
-            field.GetValue(server.EventManager));
-        return listeners.Any(listener =>
-            listener != null &&
-            listener.Pos.Equals(pile.Pos) &&
-            ReferenceEquals(listener.HandlerBare?.Target, pile) &&
-            listener.HandlerBare.Method.DeclaringType == typeof(BlockEntityPapyrusPile));
     }
 
     private async Task<BlockEntityPapyrusPile> BuildWeightedPile(ITestPlayer player, BlockPos pos)
