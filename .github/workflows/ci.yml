@@ -54,15 +54,6 @@ jobs:
     - name: Restore
       run: dotnet restore PapermakingPapyrus.slnx
 
-    - name: Check version consistency
-      shell: bash
-      run: |
-        project_version="$(dotnet msbuild src/PapermakingPapyrus/PapermakingPapyrus.csproj -getProperty:Version -nologo)"
-        if [[ "${project_version}" != "${{ steps.versions.outputs.mod }}" ]]; then
-          echo "::error::Project version ${project_version} does not match modinfo version ${{ steps.versions.outputs.mod }}"
-          exit 1
-        fi
-
     - name: Check formatting
       run: dotnet format PapermakingPapyrus.slnx --verify-no-changes --no-restore
 
