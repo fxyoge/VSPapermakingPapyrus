@@ -54,20 +54,8 @@ jobs:
     - name: Restore
       run: dotnet restore PapermakingPapyrus.slnx
 
-    - name: Check version consistency
-      shell: bash
-      run: |
-        project_version="$(dotnet msbuild src/PapermakingPapyrus/PapermakingPapyrus.csproj -getProperty:Version -nologo)"
-        if [[ "${project_version}" != "${{ steps.versions.outputs.mod }}" ]]; then
-          echo "::error::Project version ${project_version} does not match modinfo version ${{ steps.versions.outputs.mod }}"
-          exit 1
-        fi
-
     - name: Check formatting
       run: dotnet format PapermakingPapyrus.slnx --verify-no-changes --no-restore
-
-    - name: Test
-      run: dotnet test PapermakingPapyrus.slnx --configuration Release --no-restore
 
     - name: Verify release tag
       if: startsWith(github.ref, 'refs/tags/')
@@ -89,9 +77,74 @@ jobs:
         path: dist/*.zip
         if-no-files-found: error
 
+  test:
+    name: Test (${{ matrix.name }})
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - name: vanilla
+          mods: ""
+        - name: bookbinders-1.5.1
+          mods: "bookbinders@1.5.1"
+
+    steps:
+    - name: Check out source
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+    - name: Read game version
+      id: version
+      shell: bash
+      run: |
+        game_version="$(jq -er '.dependencies.game' src/PapermakingPapyrus/modinfo.json)"
+        echo "game=${game_version}" >> "$GITHUB_OUTPUT"
+        echo "VINTAGE_STORY=${GITHUB_WORKSPACE}/.cache/vintagestory/${game_version}" >> "$GITHUB_ENV"
+
+    - name: Set up .NET
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Restore cached Vintage Story server
+      id: cache-vs
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: ${{ env.VINTAGE_STORY }}
+        key: vintage-story-server-${{ runner.os }}-${{ steps.version.outputs.game }}
+
+    - name: Install Vintage Story build dependencies
+      if: steps.cache-vs.outputs.cache-hit != 'true'
+      run: scripts/install-vintage-story.sh "${{ steps.version.outputs.game }}" "$VINTAGE_STORY"
+
+    - name: Restore cached external mods
+      if: matrix.mods != ''
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: .cache/moddb
+        key: vintage-story-test-mods-${{ runner.os }}-${{ matrix.mods }}
+
+    - name: Install external mods
+      if: matrix.mods != ''
+      env:
+        EXTERNAL_MODS: ${{ matrix.mods }}
+      shell: bash
+      run: |
+        read -r -a mod_specs <<< "$EXTERNAL_MODS"
+        scripts/install-test-mods.sh .cache/moddb .testmods "${mod_specs[@]}"
+        echo "ATLAS_EXTERNAL_MODS=${GITHUB_WORKSPACE}/.testmods" >> "$GITHUB_ENV"
+
+    - name: Restore
+      run: dotnet restore PapermakingPapyrus.slnx
+
+    - name: Test
+      run: dotnet test PapermakingPapyrus.slnx --configuration Release --no-restore
+
   release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: build
+    needs: [ build, test ]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

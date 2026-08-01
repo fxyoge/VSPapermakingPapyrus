@@ -1,0 +1,212 @@
+using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
+using Atlas.Api;
+using Atlas.XUnit;
+using Vintagestory.API.Common;
+using Vintagestory.API.Datastructures;
+using Vintagestory.API.MathTools;
+using Xunit;
+using static PapermakingPapyrus.Tests.PapyrusPileTestHelpers;
+
+namespace PapermakingPapyrus.Tests;
+
+public sealed class BookbindersCompatibilityScenarios : AtlasScenarioBase
+{
+    [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
+    public Task BookbindersOwnsTheIntegratedMaterialsButNotThePressShortcut()
+    {
+        if (!World.Api.ModLoader.IsModEnabled(PapyrusConstants.BookbindersModId))
+        {
+            Assert.False(PapermakingPapyrusModSystem.BookbindersEnabled);
+            return Task.CompletedTask;
+        }
+
+        Assert.True(PapermakingPapyrusModSystem.BookbindersEnabled);
+        var tops = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.PapyrusTopsCode)));
+        var dry = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(
+                PapyrusConstants.BookbindersDryStripsCode)));
+        var wet = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(
+                PapyrusConstants.BookbindersWetStripsCode)));
+        var rough = Assert.IsAssignableFrom<Item>(
+            World.Api.World.GetItem(new AssetLocation(
+                PapyrusConstants.BookbindersRoughPapyrusCode)));
+        var papyrusStripTag = World.Api.CollectibleTagRegistry.CreateTagSet(
+            PapyrusConstants.PapyrusStripTag);
+        var airDryingPapyrusStripTag = World.Api.CollectibleTagRegistry.CreateTagSet(
+            PapyrusConstants.AirDryingPapyrusStripTag);
+        var soakedStripTag = World.Api.CollectibleTagRegistry.CreateTagSet(
+            PapyrusConstants.SoakedStripTag);
+
+        Assert.True(dry.Tags.Overlaps(papyrusStripTag));
+        Assert.True(wet.Tags.Overlaps(papyrusStripTag));
+        Assert.False(dry.Tags.Overlaps(airDryingPapyrusStripTag));
+        Assert.True(wet.Tags.Overlaps(airDryingPapyrusStripTag));
+        Assert.True(wet.Tags.Overlaps(soakedStripTag));
+        Assert.NotNull(
+            wet.GetCollectibleBehavior<CollectibleBehaviorPapyrusPilePlacement>(true));
+        Assert.Contains(
+            wet.TransitionableProps,
+            transition => transition.Type == EnumTransitionType.Dry &&
+                transition.TransitionedStack?.Code?.ToString() ==
+                    PapyrusConstants.BookbindersDryStripsCode);
+        Assert.Contains(
+            World.Api.World.GridRecipes,
+            recipe =>
+                recipe.Output?.ResolvedItemStack?.Collectible == dry &&
+                recipe.ResolvedIngredients?.Any(
+                    ingredient => ingredient?.ResolvedItemStack?.Collectible == tops) == true);
+        Assert.DoesNotContain(
+            World.Api.World.GridRecipes,
+            recipe =>
+                recipe.Output?.ResolvedItemStack?.Collectible == rough &&
+                recipe.ResolvedIngredients?.Any(
+                    ingredient => ingredient?.ResolvedItemStack?.Collectible == wet) == true);
+        return Task.CompletedTask;
+    }
+
+    [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
+    public async Task UnpressedDryStripsRequireDismantlingButAWeightedPileIsCommitted()
+    {
+        if (!PapermakingPapyrusModSystem.BookbindersEnabled)
+        {
+            return;
+        }
+
+        var player = await World.JoinPlayer("BookbindersPile");
+        var wet = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(
+                PapyrusConstants.BookbindersWetStripsCode)));
+        var dry = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(
+                PapyrusConstants.BookbindersDryStripsCode)));
+        var board = FindTagged(PapyrusConstants.PressBoardTag);
+        var weight = FindTagged(PapyrusConstants.PressWeightTag);
+        var pos = new BlockPos(1400, 120, 1400);
+
+        await player.TeleportTo(pos);
+        await World.Ticks(2);
+        var pile = SpawnPile(pos);
+        var source = new DummySlot(new ItemStack(wet, 10));
+        Assert.True(pile.AddInitialStrip(source));
+        for (var i = 1; i < 8; i++)
+        {
+            player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = source.TakeOut(1);
+            Assert.True(pile.Interact(player.Player));
+        }
+
+        player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(board);
+        Assert.True(pile.Interact(player.Player));
+        pile.Inventory[7].Itemstack = new ItemStack(dry);
+        pile.Inventory[7].MarkDirty();
+
+        player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = source.TakeOut(1);
+        Assert.True(pile.Interact(player.Player));
+        Assert.Equal(9, pile.GetNonEmptyContentStacks().Length);
+
+        player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(weight);
+        Assert.True(pile.Interact(player.Player));
+        Assert.Equal(9, pile.GetNonEmptyContentStacks().Length);
+
+        player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = null;
+        Assert.True(pile.Interact(player.Player));
+        Assert.Equal(8, pile.GetNonEmptyContentStacks().Length);
+        player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = null;
+        Assert.True(pile.Interact(player.Player));
+        Assert.Equal(7, pile.GetNonEmptyContentStacks().Length);
+
+        player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = source.TakeOut(1);
+        Assert.True(pile.Interact(player.Player));
+        for (var i = 0; i < 2; i++)
+        {
+            player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(board);
+            Assert.True(pile.Interact(player.Player));
+        }
+        player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(weight);
+        Assert.True(pile.Interact(player.Player));
+
+        pile.Inventory[0].Itemstack = new ItemStack(dry);
+        pile.Inventory[0].MarkDirty();
+        Assert.Equal(11, pile.GetNonEmptyContentStacks().Length);
+    }
+
+    [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
+    public async Task ReloadedIncompletePileCatchesUpBookbindersStripTransition()
+    {
+        if (!PapermakingPapyrusModSystem.BookbindersEnabled)
+        {
+            return;
+        }
+
+        var player = await World.JoinPlayer("StripTransition");
+        var wet = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(
+                PapyrusConstants.BookbindersWetStripsCode)));
+        var pos = new BlockPos(1420, 120, 1420);
+
+        await player.TeleportTo(pos);
+        await World.Ticks(2);
+        var original = SpawnPile(pos);
+        Assert.True(original.AddInitialStrip(new DummySlot(new ItemStack(wet))));
+        Assert.True(HasDryingListener(original));
+
+        // Establish the transition clock before serializing the pile, as normal
+        // inventory ticking does when a freshly soaked strip is first observed.
+        wet.UpdateAndGetTransitionStates(World.Api.World, original.Inventory[0]);
+        var saved = new TreeAttribute();
+        original.ToTreeAttributes(saved);
+
+        var reloaded = SpawnPile(pos.AddCopy(1, 0, 0));
+        reloaded.FromTreeAttributes(saved, World.Api.World);
+        var transitionState = Assert.IsAssignableFrom<ITreeAttribute>(
+            reloaded.Inventory[0].Itemstack?.Attributes["transitionstate"]);
+        transitionState.SetDouble(
+            "lastUpdatedTotalHours",
+            World.Calendar.TotalHours - 1_000);
+        ProcessDrying(reloaded);
+
+        Assert.Equal(
+            PapyrusConstants.BookbindersDryStripsCode,
+            reloaded.Inventory[0].Itemstack?.Collectible?.Code?.ToString());
+        player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(wet);
+        Assert.True(reloaded.Interact(player.Player));
+        Assert.Single(reloaded.GetNonEmptyContentStacks());
+
+        transitionState = Assert.IsAssignableFrom<ITreeAttribute>(
+            original.Inventory[0].Itemstack?.Attributes["transitionstate"]);
+        transitionState.SetDouble(
+            "lastUpdatedTotalHours",
+            World.Calendar.TotalHours - 1_000);
+        ProcessDrying(original);
+        Assert.False(HasDryingListener(original));
+    }
+
+    private static void ProcessDrying(BlockEntityPapyrusPile pile)
+    {
+        var method = typeof(BlockEntityPapyrusPile).GetMethod(
+            "ProcessDrying",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        method.Invoke(pile, null);
+    }
+
+    private BlockEntityPapyrusPile SpawnPile(BlockPos pos)
+    {
+        var pileBlock = Assert.IsType<BlockPapyrusPile>(
+            World.Api.World.GetBlock(new AssetLocation(PapyrusConstants.PileCode)));
+        World.Api.World.BlockAccessor.SetBlock(pileBlock.BlockId, pos);
+        World.Api.World.BlockAccessor.SpawnBlockEntity(pileBlock.EntityClass, pos);
+        return Assert.IsType<BlockEntityPapyrusPile>(
+            World.Api.World.BlockAccessor.GetBlockEntity(pos));
+    }
+
+    private Item FindTagged(string tag)
+    {
+        var tagSet = World.Api.CollectibleTagRegistry.CreateTagSet(tag);
+        return Assert.IsAssignableFrom<Item>(
+            World.Api.World.Items.First(item => item?.Code != null && item.Tags.Overlaps(tagSet)));
+    }
+}

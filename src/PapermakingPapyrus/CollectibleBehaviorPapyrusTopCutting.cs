@@ -96,12 +96,13 @@ public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collO
             return;
         }
 
-        var dryStrips = api?.World.GetItem(new AssetLocation(PapyrusConstants.DryStripsCode));
+        var outputCode = PapermakingPapyrusModSystem.ActiveDryStripsCode;
+        var dryStrips = api?.World.GetItem(new AssetLocation(outputCode));
         if (dryStrips == null)
         {
             PapermakingPapyrusModSystem.Logger?.Error(
                 "Cannot complete cutting: {0} is not registered.",
-                PapyrusConstants.DryStripsCode);
+                outputCode);
             return;
         }
 
@@ -109,13 +110,20 @@ public sealed class CollectibleBehaviorPapyrusTopCutting(CollectibleObject collO
         slot.MarkDirty();
 
         var knifeSlot = byEntity.LeftHandItemSlot!;
-        knifeSlot.Itemstack!.Collectible.DamageItem(byEntity.World, byEntity, knifeSlot, 1);
+        var durabilityCost = PapermakingPapyrusModSystem.BookbindersEnabled ? 3 : 1;
+        knifeSlot.Itemstack!.Collectible.DamageItem(
+            byEntity.World,
+            byEntity,
+            knifeSlot,
+            durabilityCost);
 
         var output = new ItemStack(
             dryStrips,
-            PapyrusCuttingRules.ProducedQuantity(
-                1,
-                PapermakingPapyrusModSystem.ServerConfig.DryStripsPerPapyrusTop));
+            PapermakingPapyrusModSystem.BookbindersEnabled
+                ? 1
+                : PapyrusCuttingRules.ProducedQuantity(
+                    1,
+                    PapermakingPapyrusModSystem.ServerConfig.DryStripsPerPapyrusTop));
 
         PlayCuttingSound(byEntity);
         if (byEntity is EntityPlayer entityPlayer &&

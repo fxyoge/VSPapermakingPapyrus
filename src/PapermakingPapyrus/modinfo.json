@@ -4,7 +4,7 @@
   "name": "Papermaking: Papyrus",
   "authors": ["fxyoge"],
   "description": "Cut, soak, and press your papyrus.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "side": "universal",
   "requiredOnClient": true,
   "requiredOnServer": true,

@@ -5,11 +5,13 @@ using Atlas.Api;
 using Atlas.XUnit;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
+using Vintagestory.API.Config;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.Server;
 using Xunit;
+using static PapermakingPapyrus.Tests.PapyrusPileTestHelpers;
 
 namespace PapermakingPapyrus.Tests;
 
@@ -24,13 +26,16 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         var soaked = Assert.IsType<Item>(
             World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode)));
         var parchment = Assert.IsAssignableFrom<Item>(
-            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.ParchmentCode)));
+            World.Api.World.GetItem(new AssetLocation(
+                PapermakingPapyrusModSystem.ActiveFinishedSheetCode)));
         var boardTag = World.Api.CollectibleTagRegistry.CreateTagSet(PapyrusConstants.PressBoardTag);
         var weightTag = World.Api.CollectibleTagRegistry.CreateTagSet(PapyrusConstants.PressWeightTag);
 
         Assert.IsType<BlockPapyrusPile>(pile);
         Assert.NotNull(soaked.GetCollectibleBehavior<CollectibleBehaviorPapyrusPilePlacement>(true));
-        Assert.Equal("game:paper-parchment", parchment.Code.ToString());
+        Assert.Equal(
+            PapermakingPapyrusModSystem.ActiveFinishedSheetCode,
+            parchment.Code.ToString());
         Assert.Contains(World.Api.World.Items, item => item?.Code != null && item.Tags.Overlaps(boardTag));
         Assert.Contains(World.Api.World.Items, item => item?.Code != null && item.Tags.Overlaps(weightTag));
         return Task.CompletedTask;
@@ -55,6 +60,10 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         World.Api.World.BlockAccessor.SpawnBlockEntity(pileBlock.EntityClass, pos);
         var pile = Assert.IsType<BlockEntityPapyrusPile>(
             World.Api.World.BlockAccessor.GetBlockEntity(pos));
+        player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(board);
+        Assert.True(pile.Interact(player.Player));
+        Assert.Empty(pile.GetNonEmptyContentStacks());
+
         var source = new DummySlot(new ItemStack(soaked, 8));
         pile.AddInitialStrip(source);
         for (var i = 1; i < 8; i++)
@@ -62,6 +71,10 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
             player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = source.TakeOut(1);
             Assert.True(pile.Interact(player.Player));
         }
+
+        player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(weight);
+        Assert.True(pile.Interact(player.Player));
+        Assert.Equal(8, pile.GetNonEmptyContentStacks().Length);
 
         for (var i = 0; i < 2; i++)
         {
@@ -72,22 +85,29 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(weight);
         Assert.True(pile.Interact(player.Player));
 
-        Assert.Equal(
-            new PapyrusPileSnapshot(8, 2, true, PapyrusPileWorkState.Pressing),
-            pile.Snapshot);
         Assert.Equal(8, pile.GetNonEmptyContentStacks().Count(stack => stack.Collectible == soaked));
         Assert.Equal(2, pile.GetNonEmptyContentStacks().Count(stack => stack.Collectible == board));
         Assert.Single(pile.GetNonEmptyContentStacks(), stack => stack.Collectible == weight);
 
         var tree = new TreeAttribute();
         pile.ToTreeAttributes(tree);
-        Assert.Equal(2, tree.GetInt("contractVersion"));
-        Assert.Equal("pressing", tree.GetString("workState"));
         Assert.Equal(0, tree.GetDouble("dryingProgress"));
 
         player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = null;
         Assert.True(pile.Interact(player.Player));
         Assert.Equal(11, pile.GetNonEmptyContentStacks().Length);
+
+        foreach (var rejected in new[] { soaked, board, weight })
+        {
+            player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(rejected);
+            Assert.True(pile.Interact(player.Player));
+            Assert.Equal(8, pile.GetNonEmptyContentStacks().Count(
+                stack => stack.Collectible == soaked));
+            Assert.Equal(2, pile.GetNonEmptyContentStacks().Count(
+                stack => stack.Collectible == board));
+            Assert.Single(pile.GetNonEmptyContentStacks(),
+                stack => stack.Collectible == weight);
+        }
     }
 
     [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
@@ -97,7 +117,8 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         var soaked = Assert.IsType<Item>(
             World.Api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode)));
         var parchment = Assert.IsAssignableFrom<Item>(
-            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.ParchmentCode)));
+            World.Api.World.GetItem(new AssetLocation(
+                PapermakingPapyrusModSystem.ActiveFinishedSheetCode)));
         var board = FindTagged(PapyrusConstants.PressBoardTag);
         var weight = FindTagged(PapyrusConstants.PressWeightTag);
         var pileBlock = Assert.IsType<BlockPapyrusPile>(
@@ -140,7 +161,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         tree.SetDouble("dryingProgress", 1);
         pile.FromTreeAttributes(tree, World.Api.World);
 
-        Assert.Equal(PapyrusPileWorkState.Dry, pile.Snapshot.WorkState);
+        Assert.True(pile.IsDry);
         player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = null;
         pile.Interact(player.Player);
 
@@ -184,14 +205,14 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         var pilePos = supportPos.UpCopy();
         var pile = Assert.IsType<BlockEntityPapyrusPile>(
             World.Api.World.BlockAccessor.GetBlockEntity(pilePos));
-        Assert.Equal(1, pile.Snapshot.StripCount);
+        Assert.Single(pile.GetNonEmptyContentStacks());
         Assert.Equal(2, slot.StackSize);
 
         Assert.True(pile.Interact(player.Player));
-        Assert.Equal(2, pile.Snapshot.StripCount);
+        Assert.Equal(2, pile.GetNonEmptyContentStacks().Length);
         slot.Itemstack = null;
         Assert.True(pile.Interact(player.Player));
-        Assert.Equal(1, pile.Snapshot.StripCount);
+        Assert.Single(pile.GetNonEmptyContentStacks());
         Assert.Equal(1, CountPlayerItems(player, soaked));
 
         var firstRemovedStrip = slot.TakeOutWhole();
@@ -295,7 +316,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
     {
         var player = await World.JoinPlayer("DryingCycles");
         var pos = new BlockPos(512, 120, 512);
-        await PrepareWarmFrozenClock();
+        await PrepareStoppedClock();
         var pile = await BuildWeightedPile(player, pos);
 
         await AddHoursAndWaitForProgress(1, pos, 1d / 24);
@@ -383,7 +404,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
     public async Task BreakingPileReleasesItsDryingListenerInEveryWorkState()
     {
         var player = await World.JoinPlayer("DryingBreak");
-        await PrepareWarmFrozenClock();
+        await PrepareStoppedClock();
 
         var incompletePos = new BlockPos(896, 120, 896);
         await player.TeleportTo(incompletePos);
@@ -414,7 +435,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
     public async Task BreakingWeightedPileDropsEveryStoredComponentExactlyOnce()
     {
         var player = await World.JoinPlayer("PileDropCounter");
-        await PrepareWarmFrozenClock();
+        await PrepareStoppedClock();
         var pos = new BlockPos(960, 120, 960);
         var pile = await BuildWeightedPile(player, pos);
         var soaked = Assert.IsType<Item>(
@@ -440,7 +461,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
     {
         var player = await World.JoinPlayer("DryingBoundary");
         var pos = new BlockPos(768, 120, 768);
-        await PrepareWarmFrozenClock();
+        await PrepareStoppedClock();
         await BuildWeightedPile(player, pos);
 
         await UnloadPileChunk(player, pos, 2048);
@@ -457,7 +478,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
     {
         var player = await World.JoinPlayer("DryingNoDupes");
         var pos = new BlockPos(1024, 120, 1024);
-        await PrepareWarmFrozenClock();
+        await PrepareStoppedClock();
         await BuildWeightedPile(player, pos);
         await AddHoursAndWaitForProgress(1, pos, 1d / 24);
 
@@ -473,14 +494,10 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
     public async Task DryingOnlyQueuesVisualUpdatesWhenItsRenderedBandChanges()
     {
         var player = await World.JoinPlayer("DryingVisual");
-        await PrepareWarmFrozenClock();
+        await PrepareStoppedClock();
         var withinBand = await BuildWeightedPile(player, new BlockPos(1280, 120, 1280));
         var crossingBand = await BuildWeightedPile(player, new BlockPos(1281, 120, 1280));
         var server = Assert.IsType<ServerMain>(World.Api.World);
-        Assert.Equal(
-            10_000,
-            new PapermakingPapyrusConfig().DryingRefreshIntervalMilliseconds);
-
         SetDryingState(withinBand, 0.10, 0.1);
         var dirtyBefore = server.DirtyBlocks.Count;
 
@@ -507,7 +524,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         Assert.True(crossingBand.IsDry);
     }
 
-    private async Task PrepareWarmFrozenClock()
+    private async Task PrepareStoppedClock()
     {
         Assert.True((await World.ExecuteCommand("/time setmonth jun")).Ok);
         Assert.True((await World.ExecuteCommand("/time set day")).Ok);
@@ -545,23 +562,6 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
             World.Api.World.BlockAccessor.GetBlockEntity(pos));
     }
 
-    private static bool HasDryingListener(BlockEntityPapyrusPile pile)
-    {
-        var server = Assert.IsType<ServerMain>(pile.Api.World);
-        var field = typeof(Vintagestory.Common.EventManager).GetField(
-            "GameTickListenersBlock",
-            BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.NotNull(field);
-        var listeners = Assert.IsAssignableFrom<
-            IEnumerable<Vintagestory.Common.GameTickListenerBlock>>(
-            field.GetValue(server.EventManager));
-        return listeners.Any(listener =>
-            listener != null &&
-            listener.Pos.Equals(pile.Pos) &&
-            ReferenceEquals(listener.HandlerBare?.Target, pile) &&
-            listener.HandlerBare.Method.DeclaringType == typeof(BlockEntityPapyrusPile));
-    }
-
     private async Task<BlockEntityPapyrusPile> BuildWeightedPile(ITestPlayer player, BlockPos pos)
     {
         await player.TeleportTo(pos);
@@ -593,7 +593,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
 
         player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(weight);
         Assert.True(pile.Interact(player.Player));
-        Assert.Equal(PapyrusPileWorkState.Pressing, pile.Snapshot.WorkState);
+        Assert.Equal(11, pile.GetNonEmptyContentStacks().Length);
         return pile;
     }
 
@@ -637,6 +637,10 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         Assert.True(save.Ok, save.Message);
         var destination = new BlockPos(pos.X + distance, pos.Y, pos.Z + distance);
         await player.TeleportTo(destination);
+        var serverApi = Assert.IsAssignableFrom<ICoreServerAPI>(World.Api);
+        serverApi.WorldManager.UnloadChunkColumn(
+            pos.X / GlobalConstants.ChunkSize,
+            pos.Z / GlobalConstants.ChunkSize);
         await World.Until(
             () => World.Api.World.BlockAccessor.GetChunkAtBlockPos(pos) == null,
             600);

@@ -32,4 +32,19 @@
     </Reference>
     <ProjectReference Include="../../src/PapermakingPapyrus/PapermakingPapyrus.csproj" AtlasMod="true" />
   </ItemGroup>
+
+  <Target Name="AppendExternalAtlasMods"
+          AfterTargets="Build"
+          Condition="'$(ATLAS_EXTERNAL_MODS)' != ''">
+    <ItemGroup>
+      <_ExternalAtlasMod Include="$(ATLAS_EXTERNAL_MODS)/*.zip" />
+    </ItemGroup>
+
+    <Error Condition="!Exists('$(ATLAS_EXTERNAL_MODS)')"
+           Text="ATLAS_EXTERNAL_MODS does not exist: $(ATLAS_EXTERNAL_MODS)" />
+    <WriteLinesToFile File="$(TargetDir)atlas-mods.generated.txt"
+                      Lines="@(_ExternalAtlasMod->'%(FullPath)')"
+                      Overwrite="false"
+                      Condition="'@(_ExternalAtlasMod)' != ''" />
+  </Target>
 </Project>

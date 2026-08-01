@@ -1,0 +1,27 @@
+[
+  {
+    file: "papermakingpapyrus:config/handbook/20-papyrusmaking.json",
+    op: "replace",
+    path: "/text",
+    value: "handbook-papermakingpapyrus:papyrusmaking-text-bookbinders",
+    dependsOn: [
+      { modid: "bookbinders" }
+    ]
+  },
+  {
+    file: "bookbinders:itemtypes/resource/papyrus_strips.json",
+    op: "addmerge",
+    path: "/tagsByType",
+    value: {
+      "strips-papyrus-dry": ["papyrus-strip"],
+      "strips-papyrus-wet": [
+        "papyrus-strip",
+        "air-drying-papyrus-strip",
+        "soaked-papyrus-strip"
+      ]
+    },
+    dependsOn: [
+      { modid: "bookbinders" }
+    ]
+  }
+]

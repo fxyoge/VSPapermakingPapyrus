@@ -10,7 +10,17 @@ namespace PapermakingPapyrus;
 
 public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 {
-    private const int MaxDryingCatchUpSamples = 32;
+    private enum PileAction
+    {
+        None,
+        AddStrip,
+        AddBoard,
+        AddWeight,
+        RemoveStrip,
+        RemoveBoard
+    }
+
+    private const int ProgressRefreshIntervalMilliseconds = 10_000;
     private readonly InventoryGeneric inventory = new(11, null, null);
     private int stripCount;
     private int boardCount;
@@ -18,19 +28,14 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
     private double dryingProgress;
     private double lastProcessedTotalHours = -1;
     private int visualBand;
-    private ClimateCondition? climateScratch;
     private long dryingListenerId;
+    private PapyrusPileTags tags = null!;
 
     public override InventoryBase Inventory => inventory;
 
     public override string InventoryClassName => "papyruspile";
 
     public float Orientation { get; set; }
-
-    public PapyrusPileSnapshot Snapshot =>
-        new(stripCount, boardCount, hasWeight, IsDry
-            ? PapyrusPileWorkState.Dry
-            : PapyrusPileSnapshot.DeriveState(stripCount, boardCount, hasWeight));
 
     public double DryingProgress => dryingProgress;
 
@@ -41,6 +46,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
     public override void Initialize(ICoreAPI api)
     {
         base.Initialize(api);
+        tags = (PapyrusPileTags)api.ObjectCache[PapyrusConstants.PileTagsCacheKey];
         if (api.Side == EnumAppSide.Server)
         {
             ProcessDrying();
@@ -56,6 +62,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         }
 
         stripCount = 1;
+        StartDryingListenerIfNeeded();
         MarkDirty(true);
         return true;
     }
@@ -77,19 +84,19 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         }
 
         var consume = player.WorldData.CurrentGameMode != EnumGameMode.Creative;
-        var action = Snapshot.NextAction(
+        var action = GetAction(
             stack == null,
-            HasTag(stack, PapyrusConstants.SoakedStripTag),
-            HasTag(stack, PapyrusConstants.PressBoardTag),
-            HasTag(stack, PapyrusConstants.PressWeightTag));
+            HasTag(stack, tags.SoakedStrip),
+            HasTag(stack, tags.PressBoard),
+            HasTag(stack, tags.PressWeight));
 
         var changed = action switch
         {
-            PapyrusPileAction.AddStrip => Add(active, stripCount, ref stripCount, consume),
-            PapyrusPileAction.AddBoard => Add(active, 8 + boardCount, ref boardCount, consume),
-            PapyrusPileAction.AddWeight => AddWeight(active, consume),
-            PapyrusPileAction.RemoveStrip => RemoveLast(player, 0, ref stripCount),
-            PapyrusPileAction.RemoveBoard => RemoveLast(player, 8, ref boardCount),
+            PileAction.AddStrip => TryAddLayer(active, stripCount, ref stripCount, consume),
+            PileAction.AddBoard => TryAddLayer(active, 8 + boardCount, ref boardCount, consume),
+            PileAction.AddWeight => AddWeight(active, consume),
+            PileAction.RemoveStrip => RemoveLast(player, 0, ref stripCount),
+            PileAction.RemoveBoard => RemoveLast(player, 8, ref boardCount),
             _ => false
         };
 
@@ -97,9 +104,9 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         {
             PlaySound(action switch
             {
-                PapyrusPileAction.AddBoard or PapyrusPileAction.RemoveBoard =>
+                PileAction.AddBoard or PileAction.RemoveBoard =>
                     PapyrusConstants.BoardSound,
-                PapyrusPileAction.AddWeight => PapyrusConstants.WeightSound,
+                PileAction.AddWeight => PapyrusConstants.WeightSound,
                 _ => PapyrusConstants.StripSound
             });
 
@@ -109,6 +116,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
             }
             else
             {
+                StartDryingListenerIfNeeded();
                 MarkDirty(true);
             }
         }
@@ -123,7 +131,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         {
             if (IsDry)
             {
-                ResolveFinishedSheet();
+                TryConvertInputsToFinishedSheet();
             }
 
             inventory.DropAll(Pos.ToVec3d().Add(0.5, 0.2, 0.5));
@@ -140,18 +148,16 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         dryingProgress = double.IsFinite(storedProgress) ? Math.Max(storedProgress, 0) : 0;
         lastProcessedTotalHours = tree.GetDouble("lastProcessedTotalHours", -1);
         visualBand = PapyrusDrying.VisualBand(dryingProgress);
-        RecountAndRepair();
+        RebuildStateFromInventory();
     }
 
     public override void ToTreeAttributes(ITreeAttribute tree)
     {
         base.ToTreeAttributes(tree);
-        tree.SetInt("contractVersion", 2);
         tree.SetFloat("orientation", Orientation);
         tree.SetInt("stripCount", stripCount);
         tree.SetInt("boardCount", boardCount);
         tree.SetBool("hasWeight", hasWeight);
-        tree.SetString("workState", Snapshot.WorkState.ToString().ToLowerInvariant());
         tree.SetDouble("dryingProgress", dryingProgress);
         tree.SetDouble("lastProcessedTotalHours", lastProcessedTotalHours);
     }
@@ -161,6 +167,10 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         if (IsDry)
         {
             dsc.AppendLine(Lang.Get("papermakingpapyrus:pile-ready"));
+        }
+        else if (HasDryUnpressedStrips())
+        {
+            dsc.AppendLine(Lang.Get("papermakingpapyrus:pile-resoak-required"));
         }
         else if (hasWeight)
         {
@@ -283,7 +293,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         return float.IsFinite(bottom) && float.IsFinite(top) && top > bottom;
     }
 
-    private bool Add(ItemSlot source, int targetIndex, ref int count, bool consume)
+    private bool TryAddLayer(ItemSlot source, int targetIndex, ref int count, bool consume)
     {
         if (!StoreOne(source, inventory[targetIndex], consume))
         {
@@ -353,11 +363,10 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         return target.Itemstack != null;
     }
 
-    private bool HasTag(ItemStack? stack, string tag) =>
-        stack != null && stack.Collectible.Tags.Overlaps(
-            Api.CollectibleTagRegistry.CreateTagSet(tag));
+    private static bool HasTag(ItemStack? stack, TagSet tag) =>
+        stack != null && stack.Collectible.Tags.Overlaps(tag);
 
-    private void RecountAndRepair()
+    private void RebuildStateFromInventory()
     {
         stripCount = Enumerable.Range(0, 8).TakeWhile(i => !inventory[i].Empty).Count();
         boardCount = stripCount == 8
@@ -372,13 +381,13 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         }
     }
 
-    private void OnDryingTick(float deltaTime) => ProcessDrying();
+    private void OnDryingTick(float _) => ProcessDrying();
 
     private void StartDryingListenerIfNeeded()
     {
         if (Api.Side != EnumAppSide.Server ||
-            !hasWeight ||
             IsDry ||
+            (!hasWeight && !HasWetUnpressedStrips()) ||
             dryingListenerId != 0)
         {
             return;
@@ -386,7 +395,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 
         dryingListenerId = RegisterGameTickListener(
             OnDryingTick,
-            PapermakingPapyrusModSystem.ServerConfig.DryingRefreshIntervalMilliseconds);
+            ProgressRefreshIntervalMilliseconds);
     }
 
     private void StopDryingListener()
@@ -402,8 +411,14 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 
     private void ProcessDrying()
     {
-        if (Api.Side != EnumAppSide.Server || !hasWeight)
+        if (Api.Side != EnumAppSide.Server)
         {
+            return;
+        }
+
+        if (!hasWeight)
+        {
+            ProcessIncompleteStripTransitions();
             return;
         }
 
@@ -421,7 +436,10 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
             return;
         }
 
-        var next = AdvanceAcrossCalendar(dryingProgress, lastProcessedTotalHours, now);
+        var next = PapyrusDrying.Advance(
+            dryingProgress,
+            now - lastProcessedTotalHours,
+            PapermakingPapyrusModSystem.ServerConfig.DryingHours);
         lastProcessedTotalHours = now;
         var nextBand = PapyrusDrying.VisualBand(next);
         dryingProgress = next;
@@ -441,52 +459,39 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         }
     }
 
-    private double AdvanceAcrossCalendar(double progress, double fromHours, double toHours)
+    private void ProcessIncompleteStripTransitions()
     {
-        var calendar = Api.World.Calendar;
-        climateScratch ??= Api.World.BlockAccessor.GetClimateAt(
-            Pos,
-            EnumGetClimateMode.WorldGenValues,
-            0);
-        var sampler = new PapyrusDryingSampler(
-            Api.World.BlockAccessor,
-            Pos,
-            climateScratch,
-            calendar.HoursPerDay);
-        return CalendarProgress.Accumulate(
-            progress,
-            fromHours,
-            toHours,
-            PapermakingPapyrusModSystem.ServerConfig.DryingHours,
-            MaxDryingCatchUpSamples,
-            ref sampler);
-    }
-
-    private readonly record struct PapyrusDryingSampler(
-        IBlockAccessor BlockAccessor,
-        BlockPos Pos,
-        ClimateCondition Climate,
-        float HoursPerDay) : ICalendarActivitySampler
-    {
-        public bool IsActiveAt(double totalHours)
+        var requiredResoakingBefore = HasDryUnpressedStrips();
+        var changed = false;
+        for (var i = 0; i < stripCount; i++)
         {
-            BlockAccessor.GetClimateAt(
-                Pos,
-                Climate,
-                EnumGetClimateMode.ForSuppliedDate_TemperatureOnly,
-                totalHours / HoursPerDay);
-            return Climate.Temperature > 0;
+            var slot = inventory[i];
+            var codeBefore = slot.Itemstack?.Collectible?.Code;
+            slot.Itemstack?.Collectible.UpdateAndGetTransitionStates(Api.World, slot);
+            changed |= codeBefore != slot.Itemstack?.Collectible?.Code;
+        }
+
+        var requiredResoakingAfter = HasDryUnpressedStrips();
+        if (changed || requiredResoakingBefore != requiredResoakingAfter)
+        {
+            MarkDirty(true);
+        }
+
+        if (!HasWetUnpressedStrips())
+        {
+            StopDryingListener();
         }
     }
 
     private void CollectFinished(IPlayer player)
     {
-        if (ResolveFinishedSheet())
+        if (TryConvertInputsToFinishedSheet())
         {
-            var parchment = inventory[0].TakeOutWhole();
-            if (parchment != null && !player.InventoryManager.TryGiveItemstack(parchment, true))
+            var finishedSheet = inventory[0].TakeOutWhole();
+            if (finishedSheet != null &&
+                !player.InventoryManager.TryGiveItemstack(finishedSheet, true))
             {
-                Api.World.SpawnItemEntity(parchment, Pos.ToVec3d().Add(0.5, 0.4, 0.5));
+                Api.World.SpawnItemEntity(finishedSheet, Pos.ToVec3d().Add(0.5, 0.4, 0.5));
             }
         }
 
@@ -494,15 +499,16 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         Api.World.BlockAccessor.SetBlock(0, Pos);
     }
 
-    private bool ResolveFinishedSheet()
+    private bool TryConvertInputsToFinishedSheet()
     {
-        var parchment = Api.World.GetItem(new AssetLocation(PapyrusConstants.ParchmentCode));
-        if (parchment == null)
+        var outputCode = PapermakingPapyrusModSystem.ActiveFinishedSheetCode;
+        var finishedSheet = Api.World.GetItem(new AssetLocation(outputCode));
+        if (finishedSheet == null)
         {
             PapermakingPapyrusModSystem.Logger?.Error(
                 "Cannot resolve completed pile at {0}: collectible {1} is missing. Returning stored inputs instead.",
                 Pos,
-                PapyrusConstants.ParchmentCode);
+                outputCode);
             return false;
         }
 
@@ -512,10 +518,51 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
             inventory[i].MarkDirty();
         }
 
-        inventory[0].Itemstack = new ItemStack(parchment);
+        inventory[0].Itemstack = new ItemStack(finishedSheet);
         inventory[0].MarkDirty();
         return true;
     }
+
+    private PileAction GetAction(bool emptyHand, bool strip, bool board, bool weight)
+    {
+        if (hasWeight || HasDryUnpressedStrips() && !emptyHand)
+        {
+            return PileAction.None;
+        }
+
+        if (emptyHand)
+        {
+            return boardCount > 0 ? PileAction.RemoveBoard :
+                stripCount > 0 ? PileAction.RemoveStrip :
+                PileAction.None;
+        }
+
+        if (stripCount < 8)
+        {
+            return strip ? PileAction.AddStrip : PileAction.None;
+        }
+
+        if (boardCount < 2)
+        {
+            return board ? PileAction.AddBoard : PileAction.None;
+        }
+
+        return weight ? PileAction.AddWeight : PileAction.None;
+    }
+
+    private bool HasDryUnpressedStrips() =>
+        !hasWeight &&
+        Enumerable.Range(0, stripCount).Any(
+            index =>
+                HasTag(inventory[index].Itemstack, tags.PapyrusStrip) &&
+                !HasTag(inventory[index].Itemstack, tags.SoakedStrip));
+
+    private bool HasWetUnpressedStrips() =>
+        !hasWeight &&
+        Enumerable.Range(0, stripCount).Any(
+            index => HasTag(
+                inventory[index].Itemstack,
+                tags.AirDryingPapyrusStrip));
 
     public void PlayPlacementSound() =>
         PlaySound(PapyrusConstants.StripSound);

@@ -16,6 +16,8 @@ bld/
 [Ll]og/
 [Ll]ogs/
 dist/
+.cache/
+.testmods/
 
 # .NET Core
 project.lock.json

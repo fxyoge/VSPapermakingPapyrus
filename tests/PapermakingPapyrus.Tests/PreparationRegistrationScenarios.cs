@@ -71,15 +71,62 @@ public sealed class PreparationRegistrationScenarios : AtlasScenarioBase
 
         Assert.Equal(1, papyrusSlot.StackSize);
         Assert.Equal(
-            durability - 1,
+            durability - (PapermakingPapyrusModSystem.BookbindersEnabled ? 3 : 1),
             knife.GetRemainingDurability(player.Entity.LeftHandItemSlot.Itemstack));
         Assert.Equal(
-            2,
+            PapermakingPapyrusModSystem.BookbindersEnabled
+                ? 1
+                : PapermakingPapyrusConfig.DefaultDryStripsPerPapyrusTop,
             player.Player.InventoryManager.Inventories
                 .Where(entry => !entry.Key.StartsWith("creative", StringComparison.Ordinal))
                 .SelectMany(entry => entry.Value)
-                .Where(slot => slot.Itemstack?.Collectible?.Code?.ToString() == PapyrusConstants.DryStripsCode)
+                .Where(slot => slot.Itemstack?.Collectible?.Code?.ToString() ==
+                    PapermakingPapyrusModSystem.ActiveDryStripsCode)
                 .Sum(slot => slot.StackSize));
+    }
+
+    [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
+    public async Task BookbindersCuttingAcceptsKnivesWithLessThanItsDurabilityCost()
+    {
+        if (!PapermakingPapyrusModSystem.BookbindersEnabled)
+        {
+            return;
+        }
+
+        var player = await World.JoinPlayer("EdgeCutter");
+        var knife = FindKnife();
+        var tops = Assert.IsType<Item>(
+            World.Api.World.GetItem(new AssetLocation(PapyrusConstants.PapyrusTopsCode)));
+        var papyrusSlot = player.Player.InventoryManager.ActiveHotbarSlot;
+
+        foreach (var remainingDurability in new[] { 1, 2 })
+        {
+            papyrusSlot.Itemstack = new ItemStack(tops, 2);
+            var knifeStack = new ItemStack(knife);
+            knife.SetDurability(knifeStack, remainingDurability);
+            player.Entity.LeftHandItemSlot.Itemstack = knifeStack;
+            var stripsBefore = CountInventoryStrips(player);
+
+            var handling = EnumHandHandling.NotHandled;
+            tops.OnHeldInteractStart(
+                papyrusSlot,
+                player.Entity,
+                null!,
+                null!,
+                true,
+                ref handling);
+            tops.OnHeldInteractStop(
+                PapermakingPapyrusConfig.DefaultCuttingDurationSeconds,
+                papyrusSlot,
+                player.Entity,
+                null!,
+                null!);
+            await World.Ticks(2);
+
+            Assert.Equal(EnumHandHandling.PreventDefault, handling);
+            Assert.Equal(1, papyrusSlot.StackSize);
+            Assert.Equal(stripsBefore + 1, CountInventoryStrips(player));
+        }
     }
 
     [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
@@ -181,14 +228,19 @@ public sealed class PreparationRegistrationScenarios : AtlasScenarioBase
                 3,
                 3,
                 entity => entity is EntityItem item &&
-                    item.Itemstack?.Collectible?.Code?.ToString() == PapyrusConstants.DryStripsCode)
+                    item.Itemstack?.Collectible?.Code?.ToString() ==
+                        PapermakingPapyrusModSystem.ActiveDryStripsCode)
             .OfType<EntityItem>()
             .Sum(item => item.Itemstack.StackSize);
 
         Assert.Equal(EnumHandHandling.PreventDefault, handling);
         Assert.Equal(1, papyrusSlot.StackSize);
         Assert.Equal(0, CountInventoryStrips(player));
-        Assert.Equal(PapermakingPapyrusConfig.DefaultDryStripsPerPapyrusTop, droppedStrips);
+        Assert.Equal(
+            PapermakingPapyrusModSystem.BookbindersEnabled
+                ? 1
+                : PapermakingPapyrusConfig.DefaultDryStripsPerPapyrusTop,
+            droppedStrips);
     }
 
     [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
@@ -228,7 +280,8 @@ public sealed class PreparationRegistrationScenarios : AtlasScenarioBase
         return player.Player.InventoryManager.Inventories
             .Where(entry => !entry.Key.StartsWith("creative", StringComparison.Ordinal))
             .SelectMany(entry => entry.Value)
-            .Where(slot => slot.Itemstack?.Collectible?.Code?.ToString() == PapyrusConstants.DryStripsCode)
+            .Where(slot => slot.Itemstack?.Collectible?.Code?.ToString() ==
+                PapermakingPapyrusModSystem.ActiveDryStripsCode)
             .Sum(slot => slot.StackSize);
     }
 }

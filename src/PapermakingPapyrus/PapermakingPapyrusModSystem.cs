@@ -10,6 +10,18 @@ namespace PapermakingPapyrus;
 
 public sealed class PapermakingPapyrusModSystem : ModSystem
 {
+    public static bool BookbindersEnabled { get; private set; }
+
+    public static string ActiveDryStripsCode =>
+        BookbindersEnabled
+            ? PapyrusConstants.BookbindersDryStripsCode
+            : PapyrusConstants.DryStripsCode;
+
+    public static string ActiveFinishedSheetCode =>
+        BookbindersEnabled
+            ? PapyrusConstants.BookbindersRoughPapyrusCode
+            : PapyrusConstants.ParchmentCode;
+
     public static PapermakingPapyrusConfig ServerConfig { get; private set; } = new();
 
     public static PapermakingPapyrusClientSettings ClientSettings { get; private set; } =
@@ -23,6 +35,7 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
     {
         Logger = Mod.Logger;
         ObjectCacheUtil.Delete(api, PapyrusConstants.MissingPileTextureWarningsCacheKey);
+        ObjectCacheUtil.Delete(api, PapyrusConstants.PileTagsCacheKey);
         api.ObjectCache[PapyrusConstants.MissingPileTextureWarningsCacheKey] =
             new ConcurrentDictionary<AssetLocation, byte>();
 
@@ -80,6 +93,15 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
 
     public override void AssetsFinalize(ICoreAPI api)
     {
+        api.ObjectCache[PapyrusConstants.PileTagsCacheKey] =
+            new PapyrusPileTags(api.CollectibleTagRegistry);
+
+        BookbindersEnabled =
+            api.ModLoader.IsModEnabled(PapyrusConstants.BookbindersModId) &&
+            api.World.GetItem(new AssetLocation(PapyrusConstants.BookbindersDryStripsCode)) != null &&
+            api.World.GetItem(new AssetLocation(PapyrusConstants.BookbindersWetStripsCode)) != null &&
+            api.World.GetItem(new AssetLocation(PapyrusConstants.BookbindersRoughPapyrusCode)) != null;
+
         var papyrusTops = api.World.GetItem(new AssetLocation(PapyrusConstants.PapyrusTopsCode));
         if (papyrusTops != null &&
             papyrusTops.GetCollectibleBehavior<CollectibleBehaviorPapyrusTopCutting>(true) == null)
@@ -90,14 +112,26 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
             papyrusTops.CollectibleBehaviors = [.. papyrusTops.CollectibleBehaviors, behavior];
         }
 
-        var soakedStrips = api.World.GetItem(new AssetLocation(PapyrusConstants.SoakedStripsCode));
-        if (soakedStrips != null &&
-            soakedStrips.GetCollectibleBehavior<CollectibleBehaviorPapyrusPilePlacement>(true) == null)
+        var soakedStripTag = api.CollectibleTagRegistry.CreateTagSet(
+            PapyrusConstants.SoakedStripTag);
+        foreach (var soakedStrips in api.World.Items.Where(
+                     item => item?.Code != null && item.Tags.Overlaps(soakedStripTag)))
         {
-            var behavior = new CollectibleBehaviorPapyrusPilePlacement(soakedStrips);
-            behavior.Initialize(new JsonObject(new JObject()));
-            behavior.OnLoaded(api);
-            soakedStrips.CollectibleBehaviors = [.. soakedStrips.CollectibleBehaviors, behavior];
+            if (soakedStrips.GetCollectibleBehavior<CollectibleBehaviorPapyrusPilePlacement>(true) == null)
+            {
+                var behavior = new CollectibleBehaviorPapyrusPilePlacement(soakedStrips);
+                behavior.Initialize(new JsonObject(new JObject()));
+                behavior.OnLoaded(api);
+                soakedStrips.CollectibleBehaviors = [.. soakedStrips.CollectibleBehaviors, behavior];
+            }
+        }
+
+        if (BookbindersEnabled)
+        {
+            var removed = api.World.GridRecipes.RemoveAll(IsBookbindersPapyrusPressRecipe);
+            Mod.Logger.Notification(
+                "Bookbinders compatibility enabled; removed {0} crafting grid papyrus press recipe(s).",
+                removed);
         }
 
         var knifeTag = api.CollectibleTagRegistry.CreateTagSet(PapyrusConstants.KnifeTag);
@@ -117,6 +151,13 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
             "Prepared {0} tagged knife item type(s) for offhand cutting.",
             preparedKnives);
     }
+
+    private static bool IsBookbindersPapyrusPressRecipe(GridRecipe recipe) =>
+        recipe.Output?.ResolvedItemStack?.Collectible?.Code?.ToString() ==
+            PapyrusConstants.BookbindersRoughPapyrusCode &&
+        recipe.ResolvedIngredients?.Any(
+            ingredient => ingredient?.ResolvedItemStack?.Collectible?.Code?.ToString() ==
+                PapyrusConstants.BookbindersWetStripsCode) == true;
 
     private void SendSettings(IServerPlayer player)
     {
