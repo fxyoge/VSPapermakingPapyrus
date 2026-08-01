@@ -130,7 +130,7 @@ public sealed class PapermakingPapyrusModSystem : ModSystem
         {
             var removed = api.World.GridRecipes.RemoveAll(IsBookbindersPapyrusPressRecipe);
             Mod.Logger.Notification(
-                "Bookbinders compatibility enabled; removed {0} shortcut papyrus press recipe(s).",
+                "Bookbinders compatibility enabled; removed {0} crafting grid papyrus press recipe(s).",
                 removed);
         }
 
