@@ -1,4 +1,3 @@
-using System.Text;
 using Vintagestory.API.Datastructures;
 
 namespace PapermakingPapyrus;

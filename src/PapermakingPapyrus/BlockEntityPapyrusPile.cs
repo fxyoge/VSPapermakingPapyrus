@@ -86,8 +86,8 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 
         var changed = action switch
         {
-            PapyrusPileAction.AddStrip => Add(active, stripCount, ref stripCount, consume),
-            PapyrusPileAction.AddBoard => Add(active, 8 + boardCount, ref boardCount, consume),
+            PapyrusPileAction.AddStrip => TryAddLayer(active, stripCount, ref stripCount, consume),
+            PapyrusPileAction.AddBoard => TryAddLayer(active, 8 + boardCount, ref boardCount, consume),
             PapyrusPileAction.AddWeight => AddWeight(active, consume),
             PapyrusPileAction.RemoveStrip => RemoveLast(player, 0, ref stripCount),
             PapyrusPileAction.RemoveBoard => RemoveLast(player, 8, ref boardCount),
@@ -125,7 +125,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         {
             if (IsDry)
             {
-                ResolveFinishedSheet();
+                TryConvertInputsToFinishedSheet();
             }
 
             inventory.DropAll(Pos.ToVec3d().Add(0.5, 0.2, 0.5));
@@ -142,7 +142,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         dryingProgress = double.IsFinite(storedProgress) ? Math.Max(storedProgress, 0) : 0;
         lastProcessedTotalHours = tree.GetDouble("lastProcessedTotalHours", -1);
         visualBand = PapyrusDrying.VisualBand(dryingProgress);
-        RecountAndRepair();
+        RebuildStateFromInventory();
     }
 
     public override void ToTreeAttributes(ITreeAttribute tree)
@@ -289,7 +289,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         return float.IsFinite(bottom) && float.IsFinite(top) && top > bottom;
     }
 
-    private bool Add(ItemSlot source, int targetIndex, ref int count, bool consume)
+    private bool TryAddLayer(ItemSlot source, int targetIndex, ref int count, bool consume)
     {
         if (!StoreOne(source, inventory[targetIndex], consume))
         {
@@ -362,7 +362,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
     private static bool HasTag(ItemStack? stack, TagSet tag) =>
         stack != null && stack.Collectible.Tags.Overlaps(tag);
 
-    private void RecountAndRepair()
+    private void RebuildStateFromInventory()
     {
         stripCount = Enumerable.Range(0, 8).TakeWhile(i => !inventory[i].Empty).Count();
         boardCount = stripCount == 8
@@ -377,7 +377,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         }
     }
 
-    private void OnDryingTick(float deltaTime) => ProcessDrying();
+    private void OnDryingTick(float _) => ProcessDrying();
 
     private void StartDryingListenerIfNeeded()
     {
@@ -516,12 +516,13 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 
     private void CollectFinished(IPlayer player)
     {
-        if (ResolveFinishedSheet())
+        if (TryConvertInputsToFinishedSheet())
         {
-            var parchment = inventory[0].TakeOutWhole();
-            if (parchment != null && !player.InventoryManager.TryGiveItemstack(parchment, true))
+            var finishedSheet = inventory[0].TakeOutWhole();
+            if (finishedSheet != null &&
+                !player.InventoryManager.TryGiveItemstack(finishedSheet, true))
             {
-                Api.World.SpawnItemEntity(parchment, Pos.ToVec3d().Add(0.5, 0.4, 0.5));
+                Api.World.SpawnItemEntity(finishedSheet, Pos.ToVec3d().Add(0.5, 0.4, 0.5));
             }
         }
 
@@ -529,11 +530,11 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         Api.World.BlockAccessor.SetBlock(0, Pos);
     }
 
-    private bool ResolveFinishedSheet()
+    private bool TryConvertInputsToFinishedSheet()
     {
         var outputCode = PapermakingPapyrusModSystem.ActiveFinishedSheetCode;
-        var parchment = Api.World.GetItem(new AssetLocation(outputCode));
-        if (parchment == null)
+        var finishedSheet = Api.World.GetItem(new AssetLocation(outputCode));
+        if (finishedSheet == null)
         {
             PapermakingPapyrusModSystem.Logger?.Error(
                 "Cannot resolve completed pile at {0}: collectible {1} is missing. Returning stored inputs instead.",
@@ -548,7 +549,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
             inventory[i].MarkDirty();
         }
 
-        inventory[0].Itemstack = new ItemStack(parchment);
+        inventory[0].Itemstack = new ItemStack(finishedSheet);
         inventory[0].MarkDirty();
         return true;
     }

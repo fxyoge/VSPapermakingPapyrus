@@ -16,8 +16,7 @@ public enum PapyrusPileAction
     AddBoard,
     AddWeight,
     RemoveStrip,
-    RemoveBoard,
-    Collect
+    RemoveBoard
 }
 
 public readonly record struct PapyrusPileSnapshot(
