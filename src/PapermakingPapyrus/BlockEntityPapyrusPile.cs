@@ -10,7 +10,7 @@ namespace PapermakingPapyrus;
 
 public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 {
-    private const int MaxDryingCatchUpSamples = 32;
+    private const int ProgressRefreshIntervalMilliseconds = 10_000;
     private readonly InventoryGeneric inventory = new(11, null, null);
     private int stripCount;
     private int boardCount;
@@ -18,7 +18,6 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
     private double dryingProgress;
     private double lastProcessedTotalHours = -1;
     private int visualBand;
-    private ClimateCondition? climateScratch;
     private long dryingListenerId;
     private PapyrusPileTags tags = null!;
 
@@ -391,7 +390,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 
         dryingListenerId = RegisterGameTickListener(
             OnDryingTick,
-            PapermakingPapyrusModSystem.ServerConfig.DryingRefreshIntervalMilliseconds);
+            ProgressRefreshIntervalMilliseconds);
     }
 
     private void StopDryingListener()
@@ -432,7 +431,10 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
             return;
         }
 
-        var next = AdvanceAcrossCalendar(dryingProgress, lastProcessedTotalHours, now);
+        var next = PapyrusDrying.Advance(
+            dryingProgress,
+            now - lastProcessedTotalHours,
+            PapermakingPapyrusModSystem.ServerConfig.DryingHours);
         lastProcessedTotalHours = now;
         var nextBand = PapyrusDrying.VisualBand(next);
         dryingProgress = next;
@@ -473,44 +475,6 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         if (!HasWetUnpressedStrips())
         {
             StopDryingListener();
-        }
-    }
-
-    private double AdvanceAcrossCalendar(double progress, double fromHours, double toHours)
-    {
-        var calendar = Api.World.Calendar;
-        climateScratch ??= Api.World.BlockAccessor.GetClimateAt(
-            Pos,
-            EnumGetClimateMode.WorldGenValues,
-            0);
-        var sampler = new PapyrusDryingSampler(
-            Api.World.BlockAccessor,
-            Pos,
-            climateScratch,
-            calendar.HoursPerDay);
-        return CalendarProgress.Accumulate(
-            progress,
-            fromHours,
-            toHours,
-            PapermakingPapyrusModSystem.ServerConfig.DryingHours,
-            MaxDryingCatchUpSamples,
-            ref sampler);
-    }
-
-    private readonly record struct PapyrusDryingSampler(
-        IBlockAccessor BlockAccessor,
-        BlockPos Pos,
-        ClimateCondition Climate,
-        float HoursPerDay) : ICalendarActivitySampler
-    {
-        public bool IsActiveAt(double totalHours)
-        {
-            BlockAccessor.GetClimateAt(
-                Pos,
-                Climate,
-                EnumGetClimateMode.ForSuppliedDate_TemperatureOnly,
-                totalHours / HoursPerDay);
-            return Climate.Temperature > 0;
         }
     }
 

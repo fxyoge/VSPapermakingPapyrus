@@ -93,20 +93,18 @@ public sealed class PapyrusPileStateTests
     }
 
     [Theory]
-    [InlineData(0, 6, 24, false, 0.25)]
-    [InlineData(0.5, 12, 24, false, 1)]
-    [InlineData(0.75, 12, 24, false, 1.25)]
-    [InlineData(1.25, 12, 24, false, 1.25)]
-    [InlineData(0.5, 12, 24, true, 0.5)]
-    [InlineData(0.5, -1, 24, false, 0.5)]
-    public void DryingAdvanceIsNormalizedAndFreezeAware(
+    [InlineData(0, 6, 24, 0.25)]
+    [InlineData(0.5, 12, 24, 1)]
+    [InlineData(0.75, 12, 24, 1.25)]
+    [InlineData(1.25, 12, 24, 1.25)]
+    [InlineData(0.5, -1, 24, 0.5)]
+    public void DryingAdvanceIsNormalized(
         double start,
         double elapsed,
         double duration,
-        bool freezing,
         double expected)
     {
-        Assert.Equal(expected, PapyrusDrying.Advance(start, elapsed, duration, freezing), 8);
+        Assert.Equal(expected, PapyrusDrying.Advance(start, elapsed, duration), 8);
     }
 
     [Theory]

@@ -301,7 +301,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
     {
         var player = await World.JoinPlayer("DryingCycles");
         var pos = new BlockPos(512, 120, 512);
-        await PrepareWarmFrozenClock();
+        await PrepareStoppedClock();
         var pile = await BuildWeightedPile(player, pos);
 
         await AddHoursAndWaitForProgress(1, pos, 1d / 24);
@@ -389,7 +389,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
     public async Task BreakingPileReleasesItsDryingListenerInEveryWorkState()
     {
         var player = await World.JoinPlayer("DryingBreak");
-        await PrepareWarmFrozenClock();
+        await PrepareStoppedClock();
 
         var incompletePos = new BlockPos(896, 120, 896);
         await player.TeleportTo(incompletePos);
@@ -420,7 +420,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
     public async Task BreakingWeightedPileDropsEveryStoredComponentExactlyOnce()
     {
         var player = await World.JoinPlayer("PileDropCounter");
-        await PrepareWarmFrozenClock();
+        await PrepareStoppedClock();
         var pos = new BlockPos(960, 120, 960);
         var pile = await BuildWeightedPile(player, pos);
         var soaked = Assert.IsType<Item>(
@@ -446,7 +446,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
     {
         var player = await World.JoinPlayer("DryingBoundary");
         var pos = new BlockPos(768, 120, 768);
-        await PrepareWarmFrozenClock();
+        await PrepareStoppedClock();
         await BuildWeightedPile(player, pos);
 
         await UnloadPileChunk(player, pos, 2048);
@@ -463,7 +463,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
     {
         var player = await World.JoinPlayer("DryingNoDupes");
         var pos = new BlockPos(1024, 120, 1024);
-        await PrepareWarmFrozenClock();
+        await PrepareStoppedClock();
         await BuildWeightedPile(player, pos);
         await AddHoursAndWaitForProgress(1, pos, 1d / 24);
 
@@ -479,14 +479,10 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
     public async Task DryingOnlyQueuesVisualUpdatesWhenItsRenderedBandChanges()
     {
         var player = await World.JoinPlayer("DryingVisual");
-        await PrepareWarmFrozenClock();
+        await PrepareStoppedClock();
         var withinBand = await BuildWeightedPile(player, new BlockPos(1280, 120, 1280));
         var crossingBand = await BuildWeightedPile(player, new BlockPos(1281, 120, 1280));
         var server = Assert.IsType<ServerMain>(World.Api.World);
-        Assert.Equal(
-            10_000,
-            new PapermakingPapyrusConfig().DryingRefreshIntervalMilliseconds);
-
         SetDryingState(withinBand, 0.10, 0.1);
         var dirtyBefore = server.DirtyBlocks.Count;
 
@@ -513,7 +509,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         Assert.True(crossingBand.IsDry);
     }
 
-    private async Task PrepareWarmFrozenClock()
+    private async Task PrepareStoppedClock()
     {
         Assert.True((await World.ExecuteCommand("/time setmonth jun")).Ok);
         Assert.True((await World.ExecuteCommand("/time set day")).Ok);

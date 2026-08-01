@@ -92,11 +92,11 @@ public static class PapyrusDrying
 {
     public const int VisualBandCount = 4;
 
-    public static double Advance(double progress, double elapsedHours, double durationHours, bool freezing)
+    public static double Advance(double progress, double elapsedHours, double durationHours)
     {
         progress = double.IsFinite(progress) ? Math.Max(progress, 0) : 0;
         if (progress >= 1 ||
-            freezing || !double.IsFinite(elapsedHours) || elapsedHours <= 0 ||
+            !double.IsFinite(elapsedHours) || elapsedHours <= 0 ||
             !double.IsFinite(durationHours) || durationHours <= 0)
         {
             return progress;
