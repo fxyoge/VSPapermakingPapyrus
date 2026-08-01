@@ -10,6 +10,16 @@ namespace PapermakingPapyrus;
 
 public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 {
+    private enum PileAction
+    {
+        None,
+        AddStrip,
+        AddBoard,
+        AddWeight,
+        RemoveStrip,
+        RemoveBoard
+    }
+
     private const int ProgressRefreshIntervalMilliseconds = 10_000;
     private readonly InventoryGeneric inventory = new(11, null, null);
     private int stripCount;
@@ -26,9 +36,6 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
     public override string InventoryClassName => "papyruspile";
 
     public float Orientation { get; set; }
-
-    public PapyrusPileSnapshot Snapshot =>
-        CreateSnapshot();
 
     public double DryingProgress => dryingProgress;
 
@@ -77,7 +84,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         }
 
         var consume = player.WorldData.CurrentGameMode != EnumGameMode.Creative;
-        var action = Snapshot.NextAction(
+        var action = GetAction(
             stack == null,
             HasTag(stack, tags.SoakedStrip),
             HasTag(stack, tags.PressBoard),
@@ -85,11 +92,11 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
 
         var changed = action switch
         {
-            PapyrusPileAction.AddStrip => TryAddLayer(active, stripCount, ref stripCount, consume),
-            PapyrusPileAction.AddBoard => TryAddLayer(active, 8 + boardCount, ref boardCount, consume),
-            PapyrusPileAction.AddWeight => AddWeight(active, consume),
-            PapyrusPileAction.RemoveStrip => RemoveLast(player, 0, ref stripCount),
-            PapyrusPileAction.RemoveBoard => RemoveLast(player, 8, ref boardCount),
+            PileAction.AddStrip => TryAddLayer(active, stripCount, ref stripCount, consume),
+            PileAction.AddBoard => TryAddLayer(active, 8 + boardCount, ref boardCount, consume),
+            PileAction.AddWeight => AddWeight(active, consume),
+            PileAction.RemoveStrip => RemoveLast(player, 0, ref stripCount),
+            PileAction.RemoveBoard => RemoveLast(player, 8, ref boardCount),
             _ => false
         };
 
@@ -97,9 +104,9 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         {
             PlaySound(action switch
             {
-                PapyrusPileAction.AddBoard or PapyrusPileAction.RemoveBoard =>
+                PileAction.AddBoard or PileAction.RemoveBoard =>
                     PapyrusConstants.BoardSound,
-                PapyrusPileAction.AddWeight => PapyrusConstants.WeightSound,
+                PileAction.AddWeight => PapyrusConstants.WeightSound,
                 _ => PapyrusConstants.StripSound
             });
 
@@ -147,12 +154,10 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
     public override void ToTreeAttributes(ITreeAttribute tree)
     {
         base.ToTreeAttributes(tree);
-        tree.SetInt("contractVersion", 2);
         tree.SetFloat("orientation", Orientation);
         tree.SetInt("stripCount", stripCount);
         tree.SetInt("boardCount", boardCount);
         tree.SetBool("hasWeight", hasWeight);
-        tree.SetString("workState", Snapshot.WorkState.ToString().ToLowerInvariant());
         tree.SetDouble("dryingProgress", dryingProgress);
         tree.SetDouble("lastProcessedTotalHours", lastProcessedTotalHours);
     }
@@ -163,7 +168,7 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         {
             dsc.AppendLine(Lang.Get("papermakingpapyrus:pile-ready"));
         }
-        else if (Snapshot.RequiresResoaking)
+        else if (HasDryUnpressedStrips())
         {
             dsc.AppendLine(Lang.Get("papermakingpapyrus:pile-resoak-required"));
         }
@@ -518,21 +523,31 @@ public sealed class BlockEntityPapyrusPile : BlockEntityContainer
         return true;
     }
 
-    private PapyrusPileSnapshot CreateSnapshot()
+    private PileAction GetAction(bool emptyHand, bool strip, bool board, bool weight)
     {
-        var requiresResoaking = HasDryUnpressedStrips();
-        return new PapyrusPileSnapshot(
-            stripCount,
-            boardCount,
-            hasWeight,
-            IsDry
-                ? PapyrusPileWorkState.Dry
-                : PapyrusPileSnapshot.DeriveState(
-                    stripCount,
-                    boardCount,
-                    hasWeight,
-                    requiresResoaking),
-            requiresResoaking);
+        if (hasWeight || HasDryUnpressedStrips() && !emptyHand)
+        {
+            return PileAction.None;
+        }
+
+        if (emptyHand)
+        {
+            return boardCount > 0 ? PileAction.RemoveBoard :
+                stripCount > 0 ? PileAction.RemoveStrip :
+                PileAction.None;
+        }
+
+        if (stripCount < 8)
+        {
+            return strip ? PileAction.AddStrip : PileAction.None;
+        }
+
+        if (boardCount < 2)
+        {
+            return board ? PileAction.AddBoard : PileAction.None;
+        }
+
+        return weight ? PileAction.AddWeight : PileAction.None;
     }
 
     private bool HasDryUnpressedStrips() =>

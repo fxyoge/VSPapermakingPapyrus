@@ -60,6 +60,10 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         World.Api.World.BlockAccessor.SpawnBlockEntity(pileBlock.EntityClass, pos);
         var pile = Assert.IsType<BlockEntityPapyrusPile>(
             World.Api.World.BlockAccessor.GetBlockEntity(pos));
+        player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(board);
+        Assert.True(pile.Interact(player.Player));
+        Assert.Empty(pile.GetNonEmptyContentStacks());
+
         var source = new DummySlot(new ItemStack(soaked, 8));
         pile.AddInitialStrip(source);
         for (var i = 1; i < 8; i++)
@@ -67,6 +71,10 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
             player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = source.TakeOut(1);
             Assert.True(pile.Interact(player.Player));
         }
+
+        player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(weight);
+        Assert.True(pile.Interact(player.Player));
+        Assert.Equal(8, pile.GetNonEmptyContentStacks().Length);
 
         for (var i = 0; i < 2; i++)
         {
@@ -77,22 +85,29 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(weight);
         Assert.True(pile.Interact(player.Player));
 
-        Assert.Equal(
-            new PapyrusPileSnapshot(8, 2, true, PapyrusPileWorkState.Pressing),
-            pile.Snapshot);
         Assert.Equal(8, pile.GetNonEmptyContentStacks().Count(stack => stack.Collectible == soaked));
         Assert.Equal(2, pile.GetNonEmptyContentStacks().Count(stack => stack.Collectible == board));
         Assert.Single(pile.GetNonEmptyContentStacks(), stack => stack.Collectible == weight);
 
         var tree = new TreeAttribute();
         pile.ToTreeAttributes(tree);
-        Assert.Equal(2, tree.GetInt("contractVersion"));
-        Assert.Equal("pressing", tree.GetString("workState"));
         Assert.Equal(0, tree.GetDouble("dryingProgress"));
 
         player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = null;
         Assert.True(pile.Interact(player.Player));
         Assert.Equal(11, pile.GetNonEmptyContentStacks().Length);
+
+        foreach (var rejected in new[] { soaked, board, weight })
+        {
+            player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(rejected);
+            Assert.True(pile.Interact(player.Player));
+            Assert.Equal(8, pile.GetNonEmptyContentStacks().Count(
+                stack => stack.Collectible == soaked));
+            Assert.Equal(2, pile.GetNonEmptyContentStacks().Count(
+                stack => stack.Collectible == board));
+            Assert.Single(pile.GetNonEmptyContentStacks(),
+                stack => stack.Collectible == weight);
+        }
     }
 
     [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
@@ -146,7 +161,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         tree.SetDouble("dryingProgress", 1);
         pile.FromTreeAttributes(tree, World.Api.World);
 
-        Assert.Equal(PapyrusPileWorkState.Dry, pile.Snapshot.WorkState);
+        Assert.True(pile.IsDry);
         player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = null;
         pile.Interact(player.Player);
 
@@ -190,14 +205,14 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         var pilePos = supportPos.UpCopy();
         var pile = Assert.IsType<BlockEntityPapyrusPile>(
             World.Api.World.BlockAccessor.GetBlockEntity(pilePos));
-        Assert.Equal(1, pile.Snapshot.StripCount);
+        Assert.Single(pile.GetNonEmptyContentStacks());
         Assert.Equal(2, slot.StackSize);
 
         Assert.True(pile.Interact(player.Player));
-        Assert.Equal(2, pile.Snapshot.StripCount);
+        Assert.Equal(2, pile.GetNonEmptyContentStacks().Length);
         slot.Itemstack = null;
         Assert.True(pile.Interact(player.Player));
-        Assert.Equal(1, pile.Snapshot.StripCount);
+        Assert.Single(pile.GetNonEmptyContentStacks());
         Assert.Equal(1, CountPlayerItems(player, soaked));
 
         var firstRemovedStrip = slot.TakeOutWhole();
@@ -578,7 +593,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
 
         player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(weight);
         Assert.True(pile.Interact(player.Player));
-        Assert.Equal(PapyrusPileWorkState.Pressing, pile.Snapshot.WorkState);
+        Assert.Equal(11, pile.GetNonEmptyContentStacks().Length);
         return pile;
     }
 

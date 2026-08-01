@@ -103,21 +103,20 @@ public sealed class BookbindersCompatibilityScenarios : AtlasScenarioBase
         pile.Inventory[7].Itemstack = new ItemStack(dry);
         pile.Inventory[7].MarkDirty();
 
-        Assert.Equal(PapyrusPileWorkState.ResoakRequired, pile.Snapshot.WorkState);
-        Assert.True(pile.Snapshot.RequiresResoaking);
-
         player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = source.TakeOut(1);
         Assert.True(pile.Interact(player.Player));
-        Assert.Equal(8, pile.Snapshot.StripCount);
-        Assert.Equal(1, pile.Snapshot.BoardCount);
+        Assert.Equal(9, pile.GetNonEmptyContentStacks().Length);
+
+        player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(weight);
+        Assert.True(pile.Interact(player.Player));
+        Assert.Equal(9, pile.GetNonEmptyContentStacks().Length);
 
         player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = null;
         Assert.True(pile.Interact(player.Player));
-        Assert.Equal(0, pile.Snapshot.BoardCount);
+        Assert.Equal(8, pile.GetNonEmptyContentStacks().Length);
         player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = null;
         Assert.True(pile.Interact(player.Player));
-        Assert.Equal(7, pile.Snapshot.StripCount);
-        Assert.False(pile.Snapshot.RequiresResoaking);
+        Assert.Equal(7, pile.GetNonEmptyContentStacks().Length);
 
         player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = source.TakeOut(1);
         Assert.True(pile.Interact(player.Player));
@@ -131,8 +130,7 @@ public sealed class BookbindersCompatibilityScenarios : AtlasScenarioBase
 
         pile.Inventory[0].Itemstack = new ItemStack(dry);
         pile.Inventory[0].MarkDirty();
-        Assert.Equal(PapyrusPileWorkState.Pressing, pile.Snapshot.WorkState);
-        Assert.False(pile.Snapshot.RequiresResoaking);
+        Assert.Equal(11, pile.GetNonEmptyContentStacks().Length);
     }
 
     [AtlasScenario(TimeoutMs = 120000, FreshWorld = true)]
@@ -173,8 +171,9 @@ public sealed class BookbindersCompatibilityScenarios : AtlasScenarioBase
         Assert.Equal(
             PapyrusConstants.BookbindersDryStripsCode,
             reloaded.Inventory[0].Itemstack?.Collectible?.Code?.ToString());
-        Assert.Equal(PapyrusPileWorkState.ResoakRequired, reloaded.Snapshot.WorkState);
-        Assert.True(reloaded.Snapshot.RequiresResoaking);
+        player.Player.InventoryManager.ActiveHotbarSlot.Itemstack = new ItemStack(wet);
+        Assert.True(reloaded.Interact(player.Player));
+        Assert.Single(reloaded.GetNonEmptyContentStacks());
 
         transitionState = Assert.IsAssignableFrom<ITreeAttribute>(
             original.Inventory[0].Itemstack?.Attributes["transitionstate"]);
