@@ -5,6 +5,7 @@ using Atlas.Api;
 using Atlas.XUnit;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
+using Vintagestory.API.Config;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
@@ -649,6 +650,10 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         Assert.True(save.Ok, save.Message);
         var destination = new BlockPos(pos.X + distance, pos.Y, pos.Z + distance);
         await player.TeleportTo(destination);
+        var serverApi = Assert.IsAssignableFrom<ICoreServerAPI>(World.Api);
+        serverApi.WorldManager.UnloadChunkColumn(
+            pos.X / GlobalConstants.ChunkSize,
+            pos.Z / GlobalConstants.ChunkSize);
         await World.Until(
             () => World.Api.World.BlockAccessor.GetChunkAtBlockPos(pos) == null,
             600);
