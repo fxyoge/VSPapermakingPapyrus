@@ -144,6 +144,7 @@ public sealed class PreparationRegistrationScenarios : AtlasScenarioBase
     public async Task CompletedCuttingDropsOutputWhenInventoryIsFull()
     {
         var player = await World.JoinPlayer("FullInventory");
+        player.Player.WorldData.CurrentGameMode = EnumGameMode.Survival;
         var knife = FindKnife();
         var tops = Assert.IsType<Item>(
             World.Api.World.GetItem(new AssetLocation(PapyrusConstants.PapyrusTopsCode)));
