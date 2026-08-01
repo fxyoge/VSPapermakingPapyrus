@@ -423,6 +423,8 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         var weight = FindTagged(PapyrusConstants.PressWeightTag);
 
         Assert.True(HasDryingListener(pile));
+        await player.TeleportTo(pos.AddCopy(16, 0, 0));
+        await World.Ticks(2);
         World.Api.World.BlockAccessor.BreakBlock(pos, player.Player);
         await World.Ticks(2);
 
@@ -677,6 +679,7 @@ public sealed class PapyrusPileScenarios : AtlasScenarioBase
         serverApi.Permissions.SetRole(
             Assert.IsAssignableFrom<IServerPlayer>(player.Player),
             "admin");
+        player.Player.WorldData.CurrentGameMode = EnumGameMode.Survival;
         await World.Ticks(2);
 
         Assert.True(player.Player.HasPrivilege("buildblockseverywhere"));
